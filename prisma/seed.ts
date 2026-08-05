@@ -16,7 +16,7 @@ async function main() {
   await prisma.exercise.deleteMany()
   await prisma.user.deleteMany()
 
-  // 1. Create standard exercises with AAOS clinical target ROMs
+  // 1. Create standard exercises with APTA clinical target ROMs
   await prisma.exercise.create({
     data: {
       name: "Knee Flexion",

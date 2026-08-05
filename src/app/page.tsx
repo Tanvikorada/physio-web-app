@@ -21,7 +21,7 @@ export default function Home() {
             Your personal <span className="text-recovery">rehab</span> assistant.
           </h1>
           <p className="text-lg md:text-xl text-ink/70 leading-relaxed max-w-xl mx-auto">
-            Recover faster with real-time motion tracking, smart analytics, and clinical-grade guidance right from your browser.
+            Recover faster with real-time motion tracking, smart analytics, and clinical-grade guidance based on APTA standards right from your browser.
           </p>
         </div>
 
