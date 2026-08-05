@@ -120,11 +120,19 @@ export class ExerciseEngine {
       }
     } else if (this.state.phase === "eccentric") {
       if (angle <= config.startThreshold) {
-        // Rep complete!
-        this.state.reps += 1
+        // Evaluate if it was a valid rep
+        const validRep = this.state.maxAngleThisRep >= config.targetAngle * 0.4
+        
+        if (validRep) {
+          this.state.reps += 1
+          this.state.formWarning = null // clear warning on valid rep
+        } else {
+          this.state.formWarning = "Rep too shallow to count."
+        }
+        
+        // Reset for next rep
         this.state.phase = "setup"
         this.state.maxAngleThisRep = 0
-        this.state.formWarning = null // clear warning on new rep
       } else if (angle > this.state.maxAngleThisRep) {
         // Wait, they started going back up without finishing the rep
         this.state.maxAngleThisRep = angle

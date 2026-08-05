@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
+import { cookies } from "next/headers"
 
 export async function GET(req: Request) {
   try {
@@ -10,16 +11,17 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Missing exerciseId" }, { status: 400 })
     }
 
-    // Default hardcoded user for MVP
-    const user = await prisma.user.findFirst()
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    const cookieStore = await cookies()
+    const userId = cookieStore.get("userId")?.value
+
+    if (!userId) {
+      return NextResponse.json({ error: "User not found" }, { status: 401 })
     }
 
     const sessions = await prisma.session.findMany({
       where: {
         exerciseId,
-        userId: user.id,
+        userId: userId,
       },
       orderBy: {
         date: "asc"
@@ -38,8 +40,10 @@ export async function POST(req: Request) {
     const data = await req.json()
     const { exerciseName, romAchieved, repCount, formAccuracyScore, painScorePre, painScorePost, status, blockedReason } = data
 
-    const user = await prisma.user.findFirst()
-    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 })
+    const cookieStore = await cookies()
+    const userId = cookieStore.get("userId")?.value
+
+    if (!userId) return NextResponse.json({ error: "User not found" }, { status: 401 })
 
     const exercise = await prisma.exercise.findFirst({
       where: { name: exerciseName }
@@ -53,7 +57,7 @@ export async function POST(req: Request) {
     const sessionDate = new Date()
     const session = await prisma.session.create({
       data: {
-        userId: user.id,
+        userId: userId,
         exerciseId: exercise.id,
         date: sessionDate,
         status: status || "completed",
@@ -82,7 +86,7 @@ export async function POST(req: Request) {
     // 3. Escalation Logic
     // Compare the current post_pain to the pain trend from the last 3 sessions for that exercise (excluding this one).
     const recentSessions = await prisma.session.findMany({
-      where: { exerciseId: exercise.id, userId: user.id },
+      where: { exerciseId: exercise.id, userId: userId },
       orderBy: { date: "desc" },
       take: 4 // The current one + last 3
     })

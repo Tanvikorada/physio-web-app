@@ -1,14 +1,27 @@
 import prisma from "@/lib/prisma"
 import { ReportClient } from "@/components/report/ReportClient"
 
+import { cookies } from "next/headers"
+import { redirect } from "next/navigation"
+
 export const dynamic = "force-dynamic"
 
 export default async function ReportPage({ searchParams }: { searchParams: { range?: string } }) {
   const range = searchParams.range || "all"
   
-  const user = await prisma.user.findFirst()
+  const cookieStore = await cookies()
+  const userId = cookieStore.get("userId")?.value
+
+  if (!userId) {
+    redirect("/")
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId }
+  })
+
   if (!user) {
-    return <div className="p-8 font-sans">No user found. Please run seed script.</div>
+    redirect("/")
   }
 
   // Determine date filter

@@ -4,14 +4,26 @@ import { ExportModal } from "@/components/dashboard/ExportModal"
 import prisma from "@/lib/prisma"
 import Link from "next/link"
 
+import { cookies } from "next/headers"
+import { redirect } from "next/navigation"
+
 export const dynamic = "force-dynamic"
 
 export default async function DashboardPage() {
-  // Fetch user (hardcoded MVP)
-  const user = await prisma.user.findFirst()
+  const cookieStore = await cookies()
+  const userId = cookieStore.get("userId")?.value
+
+  if (!userId) {
+    redirect("/")
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId }
+  })
   
   if (!user) {
-    return <div className="p-8 font-sans">No user found. Please run seed script.</div>
+    // Cookie is invalid or user was deleted
+    redirect("/")
   }
 
   // Fetch exercises and their historical sessions
@@ -83,43 +95,61 @@ export default async function DashboardPage() {
             <section key={exercise.id} className="space-y-8">
               <h2 className="font-serif text-2xl text-ink">{exercise.name}</h2>
               
-              {/* Escalation Banner */}
-              {exercise.escalationFlag && exercise.escalationNote && (
-                <div className="rounded-xl bg-signal/10 p-5 border-l-4 border-signal shadow-sm flex flex-col gap-2">
-                  <h3 className="font-sans font-semibold text-signal flex items-center gap-2">
-                    <span className="text-lg">⚠</span> Needs Attention
-                  </h3>
-                  <p className="font-sans text-ink text-sm leading-relaxed">
-                    {exercise.escalationNote}
+              {sessions.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 px-6 rounded-2xl border-2 border-dashed border-line/50 bg-white/50 text-center space-y-4">
+                  <div className="text-4xl">🎯</div>
+                  <h3 className="font-serif text-xl font-medium text-ink">Ready to begin?</h3>
+                  <p className="text-ink/70 font-sans max-w-sm">
+                    You haven't tracked any sessions for {exercise.name} yet. Start your first session to unlock live AI tracking and insights.
                   </p>
+                  <Link
+                    href={`/session?exercise=${encodeURIComponent(exercise.name)}`}
+                    className="mt-4 inline-block bg-recovery text-white px-8 py-3 rounded-full font-sans font-medium hover:opacity-90 transition-opacity"
+                  >
+                    Start First Session
+                  </Link>
                 </div>
+              ) : (
+                <>
+                  {/* Escalation Banner */}
+                  {exercise.escalationFlag && exercise.escalationNote && (
+                    <div className="rounded-xl bg-signal/10 p-5 border-l-4 border-signal shadow-sm flex flex-col gap-2">
+                      <h3 className="font-sans font-semibold text-signal flex items-center gap-2">
+                        <span className="text-lg">🚨</span> Needs Attention
+                      </h3>
+                      <p className="font-sans text-ink text-sm leading-relaxed">
+                        {exercise.escalationNote}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Arc visual */}
+                  <div className="flex flex-col items-center justify-center space-y-4">
+                    <ArcIndicator currentValue={currentROM} targetValue={targetROM} />
+                    <p className="font-sans font-medium text-ink/80 text-sm">
+                      {percentage}% toward your clinical target
+                    </p>
+                  </div>
+
+                  {/* Trend Chart */}
+                  <div>
+                    <TrendChart data={chartData} targetROM={targetROM} />
+                    <p className="mt-4 font-serif text-ink text-lg leading-relaxed text-center">
+                      {summary}
+                    </p>
+                  </div>
+
+                  {/* CTA */}
+                  <div className="flex justify-center pt-4 border-t border-line/50">
+                    <Link
+                      href={`/session?exercise=${encodeURIComponent(exercise.name)}`}
+                      className="bg-recovery text-white px-8 py-3 rounded-full font-sans font-medium hover:opacity-90 transition-opacity"
+                    >
+                      Start Today's Session
+                    </Link>
+                  </div>
+                </>
               )}
-
-              {/* Arc visual */}
-              <div className="flex flex-col items-center justify-center space-y-4">
-                <ArcIndicator currentValue={currentROM} targetValue={targetROM} />
-                <p className="font-sans font-medium text-ink/80 text-sm">
-                  {percentage}% toward your clinical target
-                </p>
-              </div>
-
-              {/* Trend Chart */}
-              <div>
-                <TrendChart data={chartData} targetROM={targetROM} />
-                <p className="mt-4 font-serif text-ink text-lg leading-relaxed text-center">
-                  {summary}
-                </p>
-              </div>
-
-              {/* CTA */}
-              <div className="flex justify-center pt-4 border-t border-line/50">
-                <Link
-                  href={`/session?exercise=${encodeURIComponent(exercise.name)}`}
-                  className="bg-recovery text-white px-8 py-3 rounded-full font-sans font-medium hover:opacity-90 transition-opacity"
-                >
-                  Start Today's Session
-                </Link>
-              </div>
             </section>
           )
         })}
