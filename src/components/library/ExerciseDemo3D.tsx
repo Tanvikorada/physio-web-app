@@ -46,17 +46,12 @@ function Model({ primaryJoint, startAngle, targetAngle, axis, isPlaying }: Exerc
     if (axis === 'z') jointRef.current.rotation.z = currentAngle
   })
 
-  // Basic styling for the material to make it look clean/clinical
+  // Enable shadow casting for realism
   useEffect(() => {
     scene.traverse((object) => {
       if ((object as THREE.Mesh).isMesh) {
-        const mesh = object as THREE.Mesh
-        // Create a neutral, semi-matte material
-        mesh.material = new THREE.MeshStandardMaterial({
-          color: '#e2e8f0', // slate-200
-          roughness: 0.6,
-          metalness: 0.1,
-        })
+        object.castShadow = true
+        object.receiveShadow = true
       }
     })
   }, [scene])
