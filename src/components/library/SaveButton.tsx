@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Bookmark } from "lucide-react"
 
 interface SaveButtonProps {
@@ -12,6 +13,7 @@ interface SaveButtonProps {
 export function SaveButton({ exerciseId, initialIsSaved, className = "p-2 text-ink/30 hover:text-signal transition-colors shrink-0" }: SaveButtonProps) {
   const [isSaved, setIsSaved] = useState(initialIsSaved)
   const [isLoading, setIsLoading] = useState(false)
+  const router = useRouter()
 
   const handleToggle = async (e: React.MouseEvent) => {
     e.preventDefault() // prevent navigating if inside a Link
@@ -39,6 +41,8 @@ export function SaveButton({ exerciseId, initialIsSaved, className = "p-2 text-i
         })
         if (!res.ok) throw new Error("Failed to save")
       }
+      // Refresh server components so Dashboard + Saved update immediately
+      router.refresh()
     } catch (error) {
       console.error(error)
       // Revert on error

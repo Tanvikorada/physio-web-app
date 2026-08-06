@@ -1,4 +1,8 @@
 import prisma from "@/lib/prisma"
+import { redirect } from "next/navigation"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
+import { cookies } from "next/headers"
 import SessionClient from "./SessionClient"
 
 export default async function SessionPage({
@@ -6,6 +10,12 @@ export default async function SessionPage({
 }: {
   searchParams: Promise<{ exerciseId?: string }>
 }) {
+  // Auth guard — unauthenticated users go to login
+  const session = await getServerSession(authOptions)
+  if (!session?.user?.id) {
+    redirect("/login")
+  }
+
   const { exerciseId } = await searchParams
 
   let exerciseData = null
@@ -26,5 +36,9 @@ export default async function SessionPage({
     }
   }
 
-  return <SessionClient initialExerciseData={exerciseData} />
+  // Pass locale to client so session components can translate
+  const cookieStore = await cookies()
+  const locale = cookieStore.get("NEXT_LOCALE")?.value || "en"
+
+  return <SessionClient initialExerciseData={exerciseData} locale={locale} />
 }

@@ -3,27 +3,29 @@
 import * as React from "react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import { useTranslation } from "@/components/DictionaryProvider"
 
 interface PainSliderProps {
   label: string
   onSubmit: (score: number) => void
 }
 
-const PAIN_DESCRIPTORS: Record<number, { label: string; color: string }> = {
-  0:  { label: "No pain",        color: "text-recovery" },
-  1:  { label: "Very mild",      color: "text-recovery" },
-  2:  { label: "Mild",           color: "text-recovery" },
-  3:  { label: "Mild",           color: "text-ink/70" },
-  4:  { label: "Moderate",       color: "text-ink/70" },
-  5:  { label: "Moderate",       color: "text-signal/80" },
-  6:  { label: "Moderate–severe", color: "text-signal/80" },
-  7:  { label: "Severe",         color: "text-signal" },
-  8:  { label: "Severe",         color: "text-signal" },
-  9:  { label: "Very severe",    color: "text-signal" },
-  10: { label: "Worst imaginable", color: "text-signal font-bold" },
+const PAIN_DESCRIPTORS: Record<number, { labelKey: string; color: string }> = {
+  0:  { labelKey: "No pain",        color: "text-recovery" },
+  1:  { labelKey: "Very mild",      color: "text-recovery" },
+  2:  { labelKey: "Mild",           color: "text-recovery" },
+  3:  { labelKey: "Mild",           color: "text-ink/70" },
+  4:  { labelKey: "Moderate",       color: "text-ink/70" },
+  5:  { labelKey: "Moderate",       color: "text-signal/80" },
+  6:  { labelKey: "Moderate-severe", color: "text-signal/80" },
+  7:  { labelKey: "Severe",         color: "text-signal" },
+  8:  { labelKey: "Severe",         color: "text-signal" },
+  9:  { labelKey: "Very severe",    color: "text-signal" },
+  10: { labelKey: "Worst imaginable", color: "text-signal font-bold" },
 }
 
 export function PainSlider({ label, onSubmit }: PainSliderProps) {
+  const { t } = useTranslation()
   const [value, setValue] = useState(0)
 
   const descriptor = PAIN_DESCRIPTORS[value]
@@ -35,9 +37,9 @@ export function PainSlider({ label, onSubmit }: PainSliderProps) {
     <div className="flex w-full flex-col items-center gap-8 rounded-2xl border border-line bg-white p-8 shadow-sm">
       {/* Header */}
       <div className="text-center space-y-1">
-        <p className="font-sans text-xs uppercase tracking-widest text-ink/40">Pain Assessment</p>
-        <h2 className="font-serif text-2xl text-ink leading-snug">{label}</h2>
-        <p className="font-sans text-sm text-ink/50">0 = no pain · 10 = worst pain imaginable</p>
+        <p className="font-sans text-xs uppercase tracking-widest text-ink/40">{t("Pain Assessment")}</p>
+        <h2 className="font-serif text-2xl text-ink leading-snug">{t(label)}</h2>
+        <p className="font-sans text-sm text-ink/50">{t("0 = no pain · 10 = worst pain imaginable")}</p>
       </div>
 
       {/* Score display */}
@@ -49,7 +51,7 @@ export function PainSlider({ label, onSubmit }: PainSliderProps) {
           {value}
         </span>
         <span className={`font-sans text-base transition-all duration-300 ${descriptor.color}`}>
-          {descriptor.label}
+          {t(descriptor.labelKey)}
         </span>
       </div>
 
@@ -66,7 +68,7 @@ export function PainSlider({ label, onSubmit }: PainSliderProps) {
             onChange={(e) => setValue(Number(e.target.value))}
             className="pain-slider h-3 w-full appearance-none rounded-full outline-none cursor-pointer"
             style={{ background: trackBg }}
-            aria-label="Pain scale 0 to 10"
+            aria-label={t("Pain scale 0 to 10")}
             id="pain-slider-input"
           />
           <style dangerouslySetInnerHTML={{
@@ -100,7 +102,7 @@ export function PainSlider({ label, onSubmit }: PainSliderProps) {
         <div className="flex w-full justify-between px-1">
           <div className="flex flex-col items-start">
             <span className="font-sans text-xs font-semibold text-recovery">0</span>
-            <span className="font-sans text-[11px] text-ink/50">No pain</span>
+            <span className="font-sans text-[11px] text-ink/50">{t("No pain")}</span>
           </div>
           {/* Tick marks 1–9 */}
           <div className="flex items-center gap-0">
@@ -113,7 +115,7 @@ export function PainSlider({ label, onSubmit }: PainSliderProps) {
           </div>
           <div className="flex flex-col items-end">
             <span className="font-sans text-xs font-semibold text-signal">10</span>
-            <span className="font-sans text-[11px] text-ink/50">Worst pain</span>
+            <span className="font-sans text-[11px] text-ink/50">{t("Worst pain")}</span>
           </div>
         </div>
       </div>
@@ -128,11 +130,11 @@ export function PainSlider({ label, onSubmit }: PainSliderProps) {
             background: value > 6 ? "var(--color-signal)" : value > 2 ? "var(--color-ink)" : "var(--color-recovery)",
           }}
         >
-          Confirm — Pain level {value}/10
+          {t("Confirm — Pain level")} {value}/10
         </Button>
         {value >= 7 && (
           <p className="text-center font-sans text-xs text-signal font-medium">
-            ⚠ High pain reported. This session will be paused for your safety.
+            ⚠ {t("High pain reported. This session will be paused for your safety.")}
           </p>
         )}
       </div>

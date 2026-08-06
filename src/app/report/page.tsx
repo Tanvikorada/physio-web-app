@@ -7,8 +7,8 @@ import { authOptions } from "@/lib/auth"
 
 export const dynamic = "force-dynamic"
 
-export default async function ReportPage({ searchParams }: { searchParams: { range?: string } }) {
-  const range = searchParams.range || "all"
+export default async function ReportPage({ searchParams }: { searchParams: Promise<{ range?: string }> }) {
+  const { range = "all" } = await searchParams
   
   const session = await getServerSession(authOptions)
   const userId = session?.user?.id
@@ -59,6 +59,7 @@ export default async function ReportPage({ searchParams }: { searchParams: { ran
       sessionsCount: sessions.length,
       completedCount: completedSessions.length,
       blockedCount: blockedSessions.length,
+      adherencePct: sessions.length > 0 ? Math.round((completedSessions.length / sessions.length) * 100) : 0,
       escalationFlag: ex.escalationFlag,
       escalationNote: ex.escalationNote,
       sessionsData: sessions.map(s => ({

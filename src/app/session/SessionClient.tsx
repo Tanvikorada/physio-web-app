@@ -11,6 +11,7 @@ import { PainSlider } from "@/components/session/PainSlider"
 import { RedFlagScreening } from "@/components/session/RedFlagScreening"
 import { ExerciseTutorial } from "@/components/session/ExerciseTutorial"
 import { GuidedSessionTimer } from "@/components/session/GuidedSessionTimer"
+import { DictionaryProvider } from "@/components/DictionaryProvider"
 import Link from "next/link"
 import { Suspense } from "react"
 
@@ -27,43 +28,48 @@ type SessionState =
   | "summary"
 
 export default function SessionClient({ 
-  initialExerciseData 
+  initialExerciseData,
+  locale = "en",
 }: { 
-  initialExerciseData?: { id: string, name: string, trackingMode: string, targetHoldSeconds: number | null, instructionsFull: string | null, description: string | null, landmarkConfig: any } | null 
+  initialExerciseData?: { id: string, name: string, trackingMode: string, targetHoldSeconds: number | null, instructionsFull: string | null, description: string | null, landmarkConfig: any } | null
+  locale?: string
 }) {
   return (
-    <Suspense fallback={
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-line border-t-recovery" />
-          <p className="font-sans text-sm text-ink/60">Loading session...</p>
+    <DictionaryProvider initialLanguage={locale}>
+      <Suspense fallback={
+        <div className="flex min-h-screen items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-line border-t-recovery" />
+            <p className="font-sans text-sm text-ink/60">Loading session...</p>
+          </div>
         </div>
-      </div>
-    }>
-      <SessionPageContent initialExerciseData={initialExerciseData} />
-    </Suspense>
+      }>
+        <SessionPageContent initialExerciseData={initialExerciseData} locale={locale} />
+      </Suspense>
+    </DictionaryProvider>
   )
 }
 
 function SessionPageContent({ 
-  initialExerciseData 
+  initialExerciseData,
+  locale = "en",
 }: { 
-  initialExerciseData?: { id: string, name: string, trackingMode: string, targetHoldSeconds: number | null, instructionsFull: string | null, description: string | null, landmarkConfig: any } | null 
+  initialExerciseData?: { id: string, name: string, trackingMode: string, targetHoldSeconds: number | null, instructionsFull: string | null, description: string | null, landmarkConfig: any } | null
+  locale?: string
 }) {
-  // Mode D goes straight to guided (no camera). All others start at screening.
+  const { t } = useTranslation()
+  // ALL modes (A, B, C, D) go through screening first — Mode D is instructional but still needs safety check.
   const [sessionState, setSessionState] = useState<SessionState>(
-    initialExerciseData
-      ? initialExerciseData.trackingMode === "D"
-        ? "pre-pain"
-        : "screening"
-      : "setup"
+    initialExerciseData ? "screening" : "setup"
   )
   const searchParams = useSearchParams()
   const defaultEx = searchParams.get("exercise") === "Shoulder Abduction" ? "ShoulderAbduction" : "KneeFlexion"
   
-  // Use the ID from the library if available, otherwise fallback
+  // Use exercise_id from landmarkConfig if present, otherwise fall back to exercise name
   const [exercise, setExercise] = useState<string>(
-    initialExerciseData ? initialExerciseData.landmarkConfig.exercise_id : defaultEx
+    initialExerciseData
+      ? (initialExerciseData.landmarkConfig?.exercise_id || initialExerciseData.name)
+      : defaultEx
   )
 
 
@@ -87,6 +93,7 @@ function SessionPageContent({
 
   // LLM Feedback
   const [feedback, setFeedback] = useState<string | null>(null)
+  const [feedbackError, setFeedbackError] = useState(false)
   const [isGeneratingFeedback, setIsGeneratingFeedback] = useState(false)
 
   // ── Step handlers ──────────────────────────────────────────────────────────
@@ -102,12 +109,13 @@ function SessionPageContent({
 
   const handleScreeningBlock = async (flags: string[]) => {
     setSessionState("blocked")
+    const exName = initialExerciseData?.name || (exercise === "KneeFlexion" ? "Knee Flexion" : "Shoulder Abduction")
     try {
       await fetch("/api/sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          exerciseName: exercise === "KneeFlexion" ? "Knee Flexion" : "Shoulder Abduction",
+          exerciseName: exName,
           status: "blocked",
           blockedReason: `Red flag screening triggered: ${flags.join(", ")}`,
         }),
@@ -119,6 +127,7 @@ function SessionPageContent({
 
   const handlePrePainSubmit = async (score: number) => {
     setPrePain(score)
+    const exName = initialExerciseData?.name || (exercise === "KneeFlexion" ? "Knee Flexion" : "Shoulder Abduction")
 
     // Hard block if score ≥ 7 (Red Light)
     if (score >= 7) {
@@ -128,7 +137,7 @@ function SessionPageContent({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            exerciseName: exercise === "KneeFlexion" ? "Knee Flexion" : "Shoulder Abduction",
+            exerciseName: exName,
             status: "blocked",
             blockedReason: `Pre-session pain score ${score}/10 — Red Light zone. Prevented to avoid tissue damage.`,
             painScorePre: score,
@@ -175,6 +184,7 @@ function SessionPageContent({
   const handlePostPainSubmit = async (score: number) => {
     setPostPain(score)
     setSessionState("summary")
+    const exName = initialExerciseData?.name || (exercise === "KneeFlexion" ? "Knee Flexion" : "Shoulder Abduction")
 
     let createdSessionId: string | undefined = undefined
 
@@ -187,7 +197,7 @@ function SessionPageContent({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          exerciseName: exercise === "KneeFlexion" ? "Knee Flexion" : "Shoulder Abduction",
+          exerciseName: exName,
           status: "completed",
           romAchieved: maxAngle,
           validRepCount: finalReps,
@@ -209,13 +219,14 @@ function SessionPageContent({
 
     // Generate Groq feedback
     setIsGeneratingFeedback(true)
+    setFeedbackError(false)
     try {
       const res = await fetch("/api/feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sessionId: createdSessionId,
-          exercise: initialExerciseData?.name || exercise,
+          exercise: exName,
           reps: finalReps,
           rejectedReps,
           maxAngle,
@@ -227,7 +238,7 @@ function SessionPageContent({
         }),
       })
 
-      if (!res.ok) throw new Error("API responded with failure")
+      if (!res.ok) throw new Error(`Feedback API error: ${res.status}`)
 
       const data = await res.json()
       if (data.feedback) {
@@ -236,8 +247,9 @@ function SessionPageContent({
         throw new Error("No feedback in response")
       }
     } catch (err) {
-      console.error(err)
-      setFeedback("AI feedback is currently unavailable. Great job completing your session!")
+      console.error("Groq feedback failed:", err)
+      setFeedbackError(true)
+      setFeedback(null)
     } finally {
       setIsGeneratingFeedback(false)
     }
@@ -505,6 +517,7 @@ function SessionPageContent({
   }
 
   // SUMMARY
+  const exDisplayName = initialExerciseData?.name || (exercise === "KneeFlexion" ? "Knee Flexion" : "Shoulder Abduction")
   const baseTargetAngle = exercise === "KneeFlexion" ? 135 : 180
   const percentage = Math.min(100, Math.round((maxAngle / baseTargetAngle) * 100))
   const painDelta =
@@ -519,10 +532,8 @@ function SessionPageContent({
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         </div>
-        <h1 className="font-serif text-3xl text-ink">Session Complete</h1>
-        <p className="font-sans text-sm text-ink/50 mt-1">
-          {exercise === "KneeFlexion" ? "Knee Flexion" : "Shoulder Abduction"}
-        </p>
+        <h1 className="font-serif text-3xl text-ink">{t("Session Complete")}</h1>
+        <p className="font-sans text-sm text-ink/50 mt-1">{t(exDisplayName)}</p>
       </div>
 
       {/* Stat grid */}
@@ -531,7 +542,7 @@ function SessionPageContent({
         <div className="col-span-2 flex flex-col items-center rounded-2xl border border-line bg-white p-6 shadow-sm">
           <ArcIndicator currentValue={maxAngle} targetValue={baseTargetAngle} />
           <p className="mt-3 font-sans text-sm text-ink/60 text-center">
-            {percentage}% of clinical target reached
+            {percentage}% {t("of clinical target reached")}
           </p>
         </div>
 
@@ -539,12 +550,12 @@ function SessionPageContent({
         {initialExerciseData?.trackingMode === "B" ? (
           <div className="flex flex-col items-center rounded-2xl border border-line bg-white p-5 shadow-sm">
             <span className="font-serif text-4xl text-recovery">{holdTimeMs ? Math.floor(holdTimeMs / 1000) : 0}</span>
-            <span className="font-sans text-xs text-ink/50 uppercase tracking-wide mt-1">Seconds Held</span>
+            <span className="font-sans text-xs text-ink/50 uppercase tracking-wide mt-1">{t("Seconds Held")}</span>
           </div>
         ) : (
           <div className="flex flex-col items-center rounded-2xl border border-line bg-white p-5 shadow-sm">
             <span className="font-serif text-4xl text-recovery">{finalReps}</span>
-            <span className="font-sans text-xs text-ink/50 uppercase tracking-wide mt-1">Valid reps</span>
+            <span className="font-sans text-xs text-ink/50 uppercase tracking-wide mt-1">{t("Valid reps")}</span>
           </div>
         )}
 
@@ -553,7 +564,7 @@ function SessionPageContent({
           <span className={`font-serif text-4xl ${rejectedReps > 0 ? "text-signal" : "text-ink/30"}`}>
             {rejectedReps}
           </span>
-          <span className="font-sans text-xs text-ink/50 uppercase tracking-wide mt-1">Not counted</span>
+          <span className="font-sans text-xs text-ink/50 uppercase tracking-wide mt-1">{t("Not counted")}</span>
         </div>
 
         {/* Pain delta */}
@@ -562,7 +573,7 @@ function SessionPageContent({
             <div className="flex items-center gap-4">
               <div className="flex flex-col items-center">
                 <span className="font-serif text-2xl text-ink">{prePain}</span>
-                <span className="font-sans text-[10px] text-ink/40 uppercase tracking-wide">Before</span>
+                <span className="font-sans text-[10px] text-ink/40 uppercase tracking-wide">{t("Before")}</span>
               </div>
               <div className="flex flex-col items-center">
                 <span
@@ -572,25 +583,35 @@ function SessionPageContent({
                 >
                   {painDelta > 0 ? `+${painDelta}` : painDelta}
                 </span>
-                <span className="font-sans text-[10px] text-ink/40 uppercase tracking-wide">Change</span>
+                <span className="font-sans text-[10px] text-ink/40 uppercase tracking-wide">{t("Change")}</span>
               </div>
               <div className="flex flex-col items-center">
                 <span className="font-serif text-2xl text-ink">{postPain}</span>
-                <span className="font-sans text-[10px] text-ink/40 uppercase tracking-wide">After</span>
+                <span className="font-sans text-[10px] text-ink/40 uppercase tracking-wide">{t("After")}</span>
               </div>
             </div>
-            <p className="font-sans text-xs text-ink/50 mt-2">Pain score (0–10)</p>
+            <p className="font-sans text-xs text-ink/50 mt-2">{t("Pain score (0–10)")}</p>
           </div>
         )}
       </div>
 
       {/* AI Feedback */}
       <div className="w-full rounded-2xl border border-line bg-white p-6 shadow-sm mb-8">
-        <h2 className="font-serif text-xl text-ink mb-3">AI Feedback</h2>
+        <h2 className="font-serif text-xl text-ink mb-3">{t("AI Feedback")}</h2>
         {isGeneratingFeedback ? (
           <div className="flex items-center gap-3 py-2">
             <div className="h-4 w-4 animate-spin rounded-full border-2 border-line border-t-recovery" />
-            <p className="font-sans text-sm text-ink/60 animate-pulse">Analyzing your session...</p>
+            <p className="font-sans text-sm text-ink/60 animate-pulse">{t("Analyzing your session...")}</p>
+          </div>
+        ) : feedbackError ? (
+          <div className="flex items-start gap-3 rounded-lg bg-signal/10 border border-signal/20 p-4">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5 text-signal shrink-0 mt-0.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+            </svg>
+            <div>
+              <p className="font-sans text-sm font-semibold text-signal">{t("AI feedback unavailable")}</p>
+              <p className="font-sans text-sm text-ink/70 mt-1">{t("The AI analysis could not be generated for this session. Your session data has been saved. Try again after your next session.")}</p>
+            </div>
           </div>
         ) : (
           <p className="font-sans text-base text-ink leading-relaxed">{feedback}</p>

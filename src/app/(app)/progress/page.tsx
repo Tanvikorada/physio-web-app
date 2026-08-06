@@ -46,7 +46,7 @@ export default async function DashboardPage() {
 
   const summaries = await Promise.all(
     exercises.map(async (ex) => {
-      if (ex.sessions.length === 0) return "Complete a session to start tracking."
+      if (ex.sessions.length === 0) return { success: false, message: "Complete a session to start tracking." }
       try {
         const res = await fetch(`${baseUrl}/api/trend-summary`, {
           method: "POST",
@@ -59,9 +59,13 @@ export default async function DashboardPage() {
           cache: "no-store",
         })
         const data = await res.json()
-        return data.summary || "Trend unavailable."
+        if (res.ok && data.summary) {
+          return { success: true, message: data.summary }
+        } else {
+          return { success: false, message: data.message || "AI trend analysis couldn't be generated.", error: true }
+        }
       } catch (e) {
-        return "Trend unavailable."
+        return { success: false, message: "AI trend analysis couldn't be generated (Network Error).", error: true }
       }
     })
   )
@@ -170,12 +174,24 @@ export default async function DashboardPage() {
                   <div className="rounded-2xl border border-line bg-white p-6 shadow-sm">
                     <p className="font-sans text-xs text-ink/40 uppercase tracking-wide mb-4">Range of Motion Over Time</p>
                     <TrendChart data={chartData} targetROM={targetROM} />
-                    <div className="mt-5 border-t border-line/40 pt-5">
-                      <p className="font-sans text-xs text-ink/40 uppercase tracking-wide mb-2">AI Trend Analysis</p>
-                      <p className="font-serif text-ink text-base leading-relaxed">
-                        {summary}
-                      </p>
-                    </div>
+                    {/* Groq trend summary */}
+                    {summary.error ? (
+                      <div className="mt-5 rounded-xl bg-signal/10 p-4 border border-signal/20 flex items-start gap-3">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5 text-signal shrink-0 mt-0.5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                        </svg>
+                        <div>
+                          <p className="font-sans text-sm font-semibold text-signal">AI trend unavailable</p>
+                          <p className="font-sans text-sm text-ink/70 mt-1">{summary.message}</p>
+                        </div>
+                      </div>
+                    ) : summary.success ? (
+                      <div className="mt-5 rounded-xl bg-recovery/10 p-4 border border-recovery/20">
+                        <p className="font-sans text-sm text-ink/80 leading-relaxed">
+                          <span className="font-semibold text-recovery">AI Trend Analysis:</span> {summary.message}
+                        </p>
+                      </div>
+                    ) : null}
                   </div>
 
                   {/* CTA */}

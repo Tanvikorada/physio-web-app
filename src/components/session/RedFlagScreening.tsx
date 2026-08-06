@@ -3,20 +3,22 @@
 import * as React from "react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import { useTranslation } from "@/components/DictionaryProvider"
 
 interface RedFlagScreeningProps {
   onClear: () => void
   onBlock: (flags: string[]) => void
 }
 
-const QUESTIONS = [
-  { id: "pain", text: "Are you experiencing sharp or shooting pain right now?" },
-  { id: "swelling", text: "Any new or increased swelling since your last session?" },
-  { id: "numbness", text: "Any numbness or tingling in the area?" },
-  { id: "fever", text: "Do you have a fever or feel generally unwell today?" },
+const QUESTION_KEYS = [
+  { id: "pain",     en: "Are you experiencing sharp or shooting pain right now?" },
+  { id: "swelling", en: "Any new or increased swelling since your last session?" },
+  { id: "numbness", en: "Any numbness or tingling in the area?" },
+  { id: "fever",    en: "Do you have a fever or feel generally unwell today?" },
 ]
 
 export function RedFlagScreening({ onClear, onBlock }: RedFlagScreeningProps) {
+  const { t } = useTranslation()
   const [answers, setAnswers] = useState<Record<string, boolean | null>>({
     pain: null,
     swelling: null,
@@ -44,26 +46,26 @@ export function RedFlagScreening({ onClear, onBlock }: RedFlagScreeningProps) {
 
   return (
     <div className="flex w-full flex-col gap-6 rounded-xl border border-line bg-white p-8 shadow-sm">
-      <h2 className="font-serif text-2xl text-ink text-center mb-2">Safety Check</h2>
+      <h2 className="font-serif text-2xl text-ink text-center mb-2">{t("Safety Check")}</h2>
       
       <div className="flex flex-col gap-4">
-        {QUESTIONS.map((q) => (
+        {QUESTION_KEYS.map((q) => (
           <div key={q.id} className="flex flex-col gap-3">
-            <p className="font-sans text-sm text-ink font-medium">{q.text}</p>
+            <p className="font-sans text-sm text-ink font-medium">{t(q.en)}</p>
             <div className="flex w-full gap-3">
               <Button
                 variant={answers[q.id] === true ? "default" : "outline"}
                 className={`flex-1 ${answers[q.id] === true ? "bg-signal text-paper hover:bg-signal/90" : ""}`}
                 onClick={() => handleAnswer(q.id, true)}
               >
-                Yes
+                {t("Yes")}
               </Button>
               <Button
                 variant={answers[q.id] === false ? "default" : "outline"}
                 className="flex-1"
                 onClick={() => handleAnswer(q.id, false)}
               >
-                No
+                {t("No")}
               </Button>
             </div>
           </div>
@@ -77,7 +79,7 @@ export function RedFlagScreening({ onClear, onBlock }: RedFlagScreeningProps) {
           disabled={!allAnswered} 
           onClick={handleSubmit}
         >
-          Continue
+          {t("Continue")}
         </Button>
       </div>
     </div>

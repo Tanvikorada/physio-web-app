@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
+import { useTranslation } from "@/components/DictionaryProvider"
 
 interface GuidedSessionTimerProps {
   exerciseName: string
@@ -17,6 +18,7 @@ export function GuidedSessionTimer({
   durationSeconds,
   onComplete,
 }: GuidedSessionTimerProps) {
+  const { t } = useTranslation()
   const isStopwatch = durationSeconds === null
 
   const [elapsedMs, setElapsedMs] = useState(0)
@@ -54,8 +56,8 @@ export function GuidedSessionTimer({
   // Auto-complete when countdown reaches zero
   useEffect(() => {
     if (isFinished && !isStopwatch) {
-      const t = setTimeout(onComplete, 1500)
-      return () => clearTimeout(t)
+      const timeoutId = setTimeout(onComplete, 1500)
+      return () => clearTimeout(timeoutId)
     }
   }, [isFinished, isStopwatch, onComplete])
 
@@ -100,15 +102,15 @@ export function GuidedSessionTimer({
           />
         </svg>
         <p className="font-sans text-xs font-medium uppercase tracking-widest text-paper/70">
-          Guided session — not tracked by AI
+          {t("Guided session — not tracked by AI")}
         </p>
       </div>
 
       <div className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-start gap-8 px-6 py-10">
         {/* Exercise name */}
         <div className="text-center">
-          <p className="font-sans text-xs uppercase tracking-widest text-ink/40 mb-1">Guided Exercise</p>
-          <h1 className="font-serif text-3xl text-ink">{exerciseName}</h1>
+          <p className="font-sans text-xs uppercase tracking-widest text-ink/40 mb-1">{t("Guided Exercise")}</p>
+          <h1 className="font-serif text-3xl text-ink">{t(exerciseName)}</h1>
         </div>
 
         {/* Timer ring */}
@@ -150,16 +152,16 @@ export function GuidedSessionTimer({
 
           <div className="text-center">
             {isFinished && !isStopwatch ? (
-              <span className="font-serif text-4xl text-recovery">Done!</span>
+              <span className="font-serif text-4xl text-recovery">{t("Done!")}</span>
             ) : isStopwatch ? (
               <>
                 <span className="font-serif text-4xl text-ink">{formatTime(elapsedMs)}</span>
-                <p className="font-sans text-xs text-ink/40 mt-1 uppercase tracking-wide">elapsed</p>
+                <p className="font-sans text-xs text-ink/40 mt-1 uppercase tracking-wide">{t("elapsed")}</p>
               </>
             ) : (
               <>
                 <span className="font-serif text-4xl text-ink">{formatTime(remainingMs)}</span>
-                <p className="font-sans text-xs text-ink/40 mt-1 uppercase tracking-wide">remaining</p>
+                <p className="font-sans text-xs text-ink/40 mt-1 uppercase tracking-wide">{t("remaining")}</p>
               </>
             )}
           </div>
@@ -173,14 +175,14 @@ export function GuidedSessionTimer({
                 onClick={handleStart}
                 className="flex-1 rounded-2xl bg-recovery py-4 font-sans font-medium text-paper transition-opacity hover:opacity-90 active:scale-[0.98]"
               >
-                {isStopwatch || isAtStart ? "Start" : "Resume"}
+                {t(isStopwatch || isAtStart ? "Start" : "Resume")}
               </button>
             ) : (
               <button
                 onClick={handlePause}
                 className="flex-1 rounded-2xl border-2 border-line bg-white py-4 font-sans font-medium text-ink transition-colors hover:border-recovery/40"
               >
-                Pause
+                {t("Pause")}
               </button>
             )}
 
@@ -190,7 +192,7 @@ export function GuidedSessionTimer({
                 onClick={handleFinish}
                 className="flex-1 rounded-2xl border-2 border-signal/30 bg-white py-4 font-sans font-medium text-signal transition-colors hover:border-signal"
               >
-                Finish
+                {t("Finish")}
               </button>
             )}
           </div>
@@ -200,10 +202,10 @@ export function GuidedSessionTimer({
         {instructions && (
           <div className="w-full rounded-2xl border border-line bg-white p-5 shadow-sm">
             <h2 className="mb-3 font-sans text-xs font-semibold uppercase tracking-widest text-ink/40">
-              How to do this exercise
+              {t("How to do this exercise")}
             </h2>
             <p className="font-sans text-sm leading-relaxed text-ink/80 whitespace-pre-line">
-              {instructions}
+              {t(instructions)}
             </p>
           </div>
         )}
@@ -212,7 +214,7 @@ export function GuidedSessionTimer({
           href="/dashboard"
           className="font-sans text-sm text-ink/40 hover:text-ink/60 transition-colors"
         >
-          Exit session
+          {t("Exit session")}
         </Link>
       </div>
     </div>

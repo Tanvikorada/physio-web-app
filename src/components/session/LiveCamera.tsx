@@ -8,6 +8,7 @@ import { HandExerciseEngine, HandExerciseState } from "@/lib/exercises/handEngin
 import { ArcIndicator } from "@/components/ui/ArcIndicator"
 import { Button } from "@/components/ui/button"
 import { Point3D } from "@/lib/exercises/angles"
+import { useTranslation } from "@/components/DictionaryProvider"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MediaPipe 33-point anatomical skeleton connections
@@ -59,6 +60,7 @@ interface LiveCameraProps {
 }
 
 export function LiveCamera({ exerciseType, onSessionComplete, targetModifier, dynamicConfig, trackingMode, targetHoldSeconds }: LiveCameraProps) {
+  const { t } = useTranslation()
   const isHandTracking = trackingMode === "C"
   
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -392,16 +394,16 @@ export function LiveCamera({ exerciseType, onSessionComplete, targetModifier, dy
         <div className="flex items-start justify-between">
           <div className="flex flex-col">
             <span className="font-sans text-xs text-paper/60 uppercase tracking-wide">
-              {isHandTracking ? exerciseType : (exerciseType === "KneeFlexion" ? "Knee Flexion" : "Shoulder Abduction")}
+              {isHandTracking ? t(exerciseType) : t(exerciseType === "KneeFlexion" ? "Knee Flexion" : "Shoulder Abduction")}
             </span>
             <div className="flex items-baseline gap-2">
               <span className="font-serif text-3xl text-paper">
                 {state.reps}
               </span>
-              <span className="font-sans text-sm text-paper/70">valid reps</span>
+              <span className="font-sans text-sm text-paper/70">{t("valid reps")}</span>
               {state.rejectedReps > 0 && (
                 <span className="font-sans text-xs text-signal/80">
-                  ({state.rejectedReps} not counted)
+                  ({state.rejectedReps} {t("not counted")})
                 </span>
               )}
             </div>
@@ -427,7 +429,7 @@ export function LiveCamera({ exerciseType, onSessionComplete, targetModifier, dy
               className="text-paper border-paper/30 hover:bg-paper/10"
               onClick={handleEndSession}
             >
-              End Session
+              {t("End Session")}
             </Button>
           </div>
         </div>
@@ -453,19 +455,19 @@ export function LiveCamera({ exerciseType, onSessionComplete, targetModifier, dy
                 : "bg-paper/10 text-paper/60 border border-paper/20"
             }`}>
               {state.phase === "setup" && (
-                <><span>●</span><span>Ready — {isHandTracking ? "hand in view" : (exerciseType === "KneeFlexion" ? "leg straight" : "arm at side")}</span></>
+                <><span>●</span><span>{t("Ready")} — {isHandTracking ? t("hand in view") : (exerciseType === "KneeFlexion" ? t("leg straight") : t("arm at side"))}</span></>
               )}
               {state.phase === "concentric" && (
-                <><span>↑</span><span>Lifting</span>
+                <><span>↑</span><span>{t("Lifting")}</span>
                   {state.currentAngle < targetAngle && (
                     <span className="ml-1 opacity-80">
-                      · {Math.max(0, Math.round(targetAngle - state.currentAngle))}° to go
+                      · {Math.max(0, Math.round(targetAngle - state.currentAngle))}° {t("to go")}
                     </span>
                   )}
                 </>
               )}
               {state.phase === "eccentric" && (
-                <><span>↓</span><span>Lowering — return to start</span></>
+                <><span>↓</span><span>{t("Lowering — return to start")}</span></>
               )}
             </div>
           )}
@@ -473,7 +475,7 @@ export function LiveCamera({ exerciseType, onSessionComplete, targetModifier, dy
           {isInitializing ? (
             <div className="flex flex-col items-center gap-3">
               <div className="w-8 h-8 border-2 border-paper/30 border-t-paper rounded-full animate-spin" />
-              <p className="font-sans text-paper/70 text-sm">Initializing camera & AI...</p>
+              <p className="font-sans text-paper/70 text-sm">{t("Initializing camera & AI...")}</p>
             </div>
           ) : (
             <div className="relative">
@@ -501,7 +503,7 @@ export function LiveCamera({ exerciseType, onSessionComplete, targetModifier, dy
                       : "bg-signal text-white"
                   }`}
                 >
-                  {state.liveCue}
+                  {t(state.liveCue)}
                 </div>
               )}
             </div>
@@ -512,7 +514,7 @@ export function LiveCamera({ exerciseType, onSessionComplete, targetModifier, dy
         <div className="h-16 flex items-end justify-center">
           {state.formWarning && (
             <div className="rounded-md bg-signal/90 px-4 py-2 text-paper shadow-lg font-sans text-sm font-medium">
-              {state.formWarning}
+              {t(state.formWarning)}
             </div>
           )}
         </div>
