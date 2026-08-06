@@ -174,5 +174,6 @@ export function ReportClient({ user, dateRange, summary, exercises }: ReportClie
         </div>
       </div>
     </div>
-  )
+  </div>
+)
 }
