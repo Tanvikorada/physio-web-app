@@ -55,9 +55,14 @@ export default async function ExerciseDetailPage({
 
   const isPlayable = exercise.trackingMode === "A" || exercise.trackingMode === "B" || exercise.trackingMode === "D"
 
-  // 3D Demo configuration mapping
+  // 3D Demo configuration mapping for flagship exercises
   const demoConfig: Record<string, { joint: string, axis: 'x' | 'y' | 'z', defaultStart: number, defaultTarget: number }> = {
-    "Shoulder Abduction": { joint: "mixamorigRightArm", axis: "z", defaultStart: 0, defaultTarget: 90 },
+    "Shoulder Abduction": { joint: "mixamorigRightArm", axis: "z", defaultStart: 25, defaultTarget: 90 },
+    "Shoulder Flexion": { joint: "mixamorigRightArm", axis: "x", defaultStart: 20, defaultTarget: 140 },
+    "Heel Slides": { joint: "mixamorigRightLeg", axis: "x", defaultStart: 160, defaultTarget: 90 },
+    "Neck Rotation": { joint: "mixamorigNeck", axis: "y", defaultStart: 15, defaultTarget: 60 },
+    "Hip Abduction": { joint: "mixamorigRightUpLeg", axis: "z", defaultStart: 175, defaultTarget: 145 },
+    "Ankle Pumps": { joint: "mixamorigRightFoot", axis: "x", defaultStart: 120, defaultTarget: 90 },
   }
 
   const demoParams = demoConfig[exercise.name]

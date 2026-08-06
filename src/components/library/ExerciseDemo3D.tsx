@@ -14,7 +14,7 @@ interface ExerciseDemo3DProps {
 }
 
 function Model({ primaryJoint, startAngle, targetAngle, axis, isPlaying }: ExerciseDemo3DProps & { isPlaying: boolean }) {
-  const { scene } = useGLTF('/models/Soldier.glb')
+  const { scene } = useGLTF('/models/Michelle.glb')
   const jointRef = useRef<THREE.Bone | null>(null)
   
   // Find the bone on mount
@@ -109,5 +109,5 @@ export function ExerciseDemo3D({ primaryJoint, startAngle, targetAngle, axis }: 
 
 // Preload the model
 if (typeof window !== 'undefined') {
-  useGLTF.preload('/models/Soldier.glb')
+  useGLTF.preload('/models/Michelle.glb')
 }
