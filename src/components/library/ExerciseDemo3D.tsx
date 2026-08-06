@@ -1,7 +1,7 @@
 "use client"
 import React, { useRef, useState, useEffect } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
-import { useGLTF, OrbitControls } from '@react-three/drei'
+import { useFBX, OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
 import { Play, Pause } from 'lucide-react'
 import { useTranslation } from '@/components/DictionaryProvider'
@@ -14,19 +14,19 @@ interface ExerciseDemo3DProps {
 }
 
 function Model({ primaryJoint, startAngle, targetAngle, axis, isPlaying }: ExerciseDemo3DProps & { isPlaying: boolean }) {
-  const { scene } = useGLTF('/models/Michelle.glb')
+  const fbx = useFBX('/models/tracksuit.fbx')
   const jointRef = useRef<THREE.Bone | null>(null)
   
   // Find the bone on mount
   useEffect(() => {
     let foundBone = null
-    scene.traverse((object) => {
+    fbx.traverse((object) => {
       if ((object as THREE.Bone).isBone && object.name === primaryJoint) {
         foundBone = object
       }
     })
     jointRef.current = foundBone as THREE.Bone | null
-  }, [scene, primaryJoint])
+  }, [fbx, primaryJoint])
 
   useFrame((state) => {
     if (!jointRef.current || !isPlaying) return
@@ -48,15 +48,15 @@ function Model({ primaryJoint, startAngle, targetAngle, axis, isPlaying }: Exerc
 
   // Enable shadow casting for realism
   useEffect(() => {
-    scene.traverse((object) => {
+    fbx.traverse((object) => {
       if ((object as THREE.Mesh).isMesh) {
         object.castShadow = true
         object.receiveShadow = true
       }
     })
-  }, [scene])
+  }, [fbx])
 
-  return <primitive object={scene} position={[0, -1, 0]} />
+  return <primitive object={fbx} position={[0, -1, 0]} />
 }
 
 export function ExerciseDemo3D({ primaryJoint, startAngle, targetAngle, axis }: ExerciseDemo3DProps) {
@@ -109,5 +109,5 @@ export function ExerciseDemo3D({ primaryJoint, startAngle, targetAngle, axis }: 
 
 // Preload the model
 if (typeof window !== 'undefined') {
-  useGLTF.preload('/models/Michelle.glb')
+  useFBX.preload('/models/tracksuit.fbx')
 }
