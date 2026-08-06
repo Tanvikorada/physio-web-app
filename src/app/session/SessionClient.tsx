@@ -11,7 +11,7 @@ import { PainSlider } from "@/components/session/PainSlider"
 import { RedFlagScreening } from "@/components/session/RedFlagScreening"
 import { ExerciseTutorial } from "@/components/session/ExerciseTutorial"
 import { GuidedSessionTimer } from "@/components/session/GuidedSessionTimer"
-import { DictionaryProvider } from "@/components/DictionaryProvider"
+import { DictionaryProvider, useTranslation } from "@/components/DictionaryProvider"
 import Link from "next/link"
 import { Suspense } from "react"
 
