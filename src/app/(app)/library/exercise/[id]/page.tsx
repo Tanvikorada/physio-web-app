@@ -5,6 +5,7 @@ import { ChevronLeft, Info, Play } from "lucide-react"
 import { SaveButton } from "@/components/library/SaveButton"
 import { cookies } from "next/headers"
 import { getDictionary } from "@/lib/i18n"
+import { ExerciseDemo3D } from "@/components/library/ExerciseDemo3D"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 
@@ -54,6 +55,18 @@ export default async function ExerciseDetailPage({
 
   const isPlayable = exercise.trackingMode === "A" || exercise.trackingMode === "B" || exercise.trackingMode === "D"
 
+  // 3D Demo configuration mapping
+  const demoConfig: Record<string, { joint: string, axis: 'x' | 'y' | 'z', defaultStart: number, defaultTarget: number }> = {
+    "Shoulder Abduction": { joint: "mixamorigRightArm", axis: "z", defaultStart: 0, defaultTarget: 90 },
+  }
+
+  const demoParams = demoConfig[exercise.name]
+  
+  // Extract landmark config if available
+  const lmConfig = exercise.landmarkConfig as any
+  const startAngle = lmConfig?.rep_start_angle ?? demoParams?.defaultStart
+  const targetAngle = lmConfig?.rep_top_angle ?? demoParams?.defaultTarget
+
   return (
     <div className="flex flex-col min-h-screen p-6 max-w-2xl mx-auto">
       <Link href={`/library/category/${encodeURIComponent(exercise.categories[0])}`} className="flex items-center text-ink/60 mb-6 font-sans text-sm active:opacity-50 w-fit">
@@ -73,6 +86,15 @@ export default async function ExerciseDetailPage({
           </span>
         ))}
       </div>
+
+      {demoParams && (
+        <ExerciseDemo3D 
+          primaryJoint={demoParams.joint}
+          axis={demoParams.axis}
+          startAngle={startAngle}
+          targetAngle={targetAngle}
+        />
+      )}
 
       <div className="bg-paper border border-line rounded-2xl p-5 mb-6">
         <h2 className="font-sans font-medium text-ink mb-2 flex items-center">
