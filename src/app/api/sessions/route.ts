@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
 import { cookies } from "next/headers"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 
 export async function GET(req: Request) {
   try {
@@ -11,8 +13,8 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Missing exerciseId" }, { status: 400 })
     }
 
-    const cookieStore = await cookies()
-    const userId = cookieStore.get("userId")?.value
+    const sessionAuth = await getServerSession(authOptions)
+    const userId = sessionAuth?.user?.id
 
     if (!userId) {
       return NextResponse.json({ error: "User not found" }, { status: 401 })
@@ -40,10 +42,12 @@ export async function POST(req: Request) {
     const data = await req.json()
     const { exerciseName, romAchieved, validRepCount, rejectedRepCount, formQualityFlags, formAccuracyScore, painScorePre, painScorePost, status, blockedReason } = data
 
-    const cookieStore = await cookies()
-    const userId = cookieStore.get("userId")?.value
+    const sessionAuth = await getServerSession(authOptions)
+    const userId = sessionAuth?.user?.id
 
     if (!userId) return NextResponse.json({ error: "User not found" }, { status: 401 })
+
+    const cookieStore = await cookies()
 
     const exercise = await prisma.exercise.findFirst({
       where: { name: exerciseName }
@@ -117,9 +121,15 @@ export async function POST(req: Request) {
           const Groq = (await import("groq-sdk")).default
           const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
           
+          const localeCode = cookieStore.get("NEXT_LOCALE")?.value || "en"
+          let languageName = "English"
+          if (localeCode === "hi") languageName = "Hindi"
+          if (localeCode === "te") languageName = "Telugu"
+          
           const prompt = `You are a factual clinical assistant. The user's pain scores for ${exerciseName} over the last 4 sessions were: ${p3}, ${p2}, ${p1}, and today is ${currentPain} (out of 10).
           
 Write 1-2 plain-language sentences stating the pattern observed and recommending the user check in with their physiotherapist. 
+IMPORTANT: You MUST provide the output exactly and only in ${languageName}.
 Rule: NEVER suggest continuing, stopping, or modifying the exercise — only recommend human consultation.
 Rule: Return ONLY the text.`
 

@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Fraunces } from "next/font/google";
+import { cookies } from "next/headers";
 import "./globals.css";
+import { DictionaryProvider } from "@/components/DictionaryProvider";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -32,18 +34,25 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const cookieStore = await cookies();
+  const locale = cookieStore.get("NEXT_LOCALE")?.value || "en";
+  const largeText = cookieStore.get("LARGE_TEXT")?.value === "true";
+
   return (
     <html
-      lang="en"
+      lang={locale}
       className={`${inter.variable} ${fraunces.variable} h-full antialiased`}
+      style={{ fontSize: largeText ? "125%" : "100%" }}
     >
       <body className="min-h-full flex flex-col font-sans bg-paper text-ink">
-        {children}
+        <DictionaryProvider initialLanguage={locale} initialLargeText={largeText}>
+          {children}
+        </DictionaryProvider>
       </body>
     </html>
   );

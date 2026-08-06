@@ -9,73 +9,132 @@ interface PainSliderProps {
   onSubmit: (score: number) => void
 }
 
+const PAIN_DESCRIPTORS: Record<number, { label: string; color: string }> = {
+  0:  { label: "No pain",        color: "text-recovery" },
+  1:  { label: "Very mild",      color: "text-recovery" },
+  2:  { label: "Mild",           color: "text-recovery" },
+  3:  { label: "Mild",           color: "text-ink/70" },
+  4:  { label: "Moderate",       color: "text-ink/70" },
+  5:  { label: "Moderate",       color: "text-signal/80" },
+  6:  { label: "Moderate–severe", color: "text-signal/80" },
+  7:  { label: "Severe",         color: "text-signal" },
+  8:  { label: "Severe",         color: "text-signal" },
+  9:  { label: "Very severe",    color: "text-signal" },
+  10: { label: "Worst imaginable", color: "text-signal font-bold" },
+}
+
 export function PainSlider({ label, onSubmit }: PainSliderProps) {
   const [value, setValue] = useState(0)
 
-  // Calculate signal color intensity based on value (0 to 10)
-  // At 0, it should be neutral/grey. At 10, it should be full --signal (#C4703A).
-  const intensity = value / 10
+  const descriptor = PAIN_DESCRIPTORS[value]
 
-  // We can interpolate between a neutral line color (#D8D2C4) and signal (#C4703A)
-  // But a simple way using Tailwind is to adjust opacity of the signal color for the thumb/track, 
-  // or use a custom CSS variable inline.
-  // Actually, we'll just use inline styles to set the background color of the thumb and filled track.
+  // Interpolate background: 0 = neutral line color, 10 = full signal
+  const trackBg = `linear-gradient(to right, var(--color-signal) ${value * 10}%, var(--color-line) ${value * 10}%)`
 
   return (
-    <div className="flex w-full flex-col items-center gap-6 rounded-xl border border-line bg-white p-8 shadow-sm">
-      <h2 className="font-serif text-2xl text-ink">{label}</h2>
-      
-      <div className="flex w-full flex-col items-center space-y-8">
+    <div className="flex w-full flex-col items-center gap-8 rounded-2xl border border-line bg-white p-8 shadow-sm">
+      {/* Header */}
+      <div className="text-center space-y-1">
+        <p className="font-sans text-xs uppercase tracking-widest text-ink/40">Pain Assessment</p>
+        <h2 className="font-serif text-2xl text-ink leading-snug">{label}</h2>
+        <p className="font-sans text-sm text-ink/50">0 = no pain · 10 = worst pain imaginable</p>
+      </div>
+
+      {/* Score display */}
+      <div className="flex flex-col items-center gap-1">
+        <span
+          className="font-serif text-7xl leading-none tabular-nums transition-colors duration-300"
+          style={{ color: value > 6 ? "var(--color-signal)" : value > 2 ? "var(--color-ink)" : "var(--color-recovery)" }}
+        >
+          {value}
+        </span>
+        <span className={`font-sans text-base transition-all duration-300 ${descriptor.color}`}>
+          {descriptor.label}
+        </span>
+      </div>
+
+      {/* Slider */}
+      <div className="w-full space-y-3">
+        {/* Custom styled range input */}
         <div className="relative w-full">
-          <input 
-            type="range" 
-            min={0} 
-            max={10} 
-            step={1} 
+          <input
+            type="range"
+            min={0}
+            max={10}
+            step={1}
             value={value}
             onChange={(e) => setValue(Number(e.target.value))}
-            className="h-2 w-full appearance-none rounded-full outline-none"
-            style={{
-              background: `linear-gradient(to right, var(--signal) ${value * 10}%, var(--line) ${value * 10}%)`,
-              opacity: 0.3 + (intensity * 0.7), // more opaque as pain goes up
-            }}
+            className="pain-slider h-3 w-full appearance-none rounded-full outline-none cursor-pointer"
+            style={{ background: trackBg }}
+            aria-label="Pain scale 0 to 10"
+            id="pain-slider-input"
           />
-          {/* Custom thumb styles using global css or simple relative positioning could be better, but native range is okay for prototype. Let's add a large number readout. */}
-          <style dangerouslySetInnerHTML={{__html: `
-            input[type=range]::-webkit-slider-thumb {
-              -webkit-appearance: none;
-              appearance: none;
-              width: 24px;
-              height: 24px;
-              border-radius: 50%;
-              background: var(--signal);
-              cursor: pointer;
-              border: 2px solid white;
-              box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-            }
-          `}} />
+          <style dangerouslySetInnerHTML={{
+            __html: `
+              .pain-slider::-webkit-slider-thumb {
+                -webkit-appearance: none;
+                appearance: none;
+                width: 28px;
+                height: 28px;
+                border-radius: 50%;
+                background: ${value > 6 ? "var(--color-signal)" : value > 2 ? "var(--color-ink)" : "var(--color-recovery)"};
+                cursor: pointer;
+                border: 3px solid white;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+                transition: background 0.3s ease;
+              }
+              .pain-slider::-moz-range-thumb {
+                width: 28px;
+                height: 28px;
+                border-radius: 50%;
+                background: ${value > 6 ? "var(--color-signal)" : value > 2 ? "var(--color-ink)" : "var(--color-recovery)"};
+                cursor: pointer;
+                border: 3px solid white;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+              }
+            `
+          }} />
         </div>
 
-        <div className="flex items-center justify-center">
-          <span className="font-serif text-5xl text-ink" style={{ color: value > 3 ? 'var(--signal)' : 'var(--ink)' }}>
-            {value}
-          </span>
-          <span className="ml-2 font-sans text-sm text-ink/60 uppercase tracking-widest mt-3">/ 10</span>
-        </div>
-
-        <div className="flex w-full justify-between font-sans text-xs text-ink/50 px-2">
-          <span>0 - No Pain</span>
-          <span>10 - Worst Pain</span>
+        {/* Endpoint labels */}
+        <div className="flex w-full justify-between px-1">
+          <div className="flex flex-col items-start">
+            <span className="font-sans text-xs font-semibold text-recovery">0</span>
+            <span className="font-sans text-[11px] text-ink/50">No pain</span>
+          </div>
+          {/* Tick marks 1–9 */}
+          <div className="flex items-center gap-0">
+            {[1,2,3,4,5,6,7,8,9].map(n => (
+              <div key={n} className="flex flex-col items-center" style={{ width: 24 }}>
+                <div className={`h-1.5 w-0.5 rounded-full ${n <= value ? "bg-signal/60" : "bg-line"}`} />
+                <span className="font-sans text-[9px] text-ink/30 mt-0.5">{n}</span>
+              </div>
+            ))}
+          </div>
+          <div className="flex flex-col items-end">
+            <span className="font-sans text-xs font-semibold text-signal">10</span>
+            <span className="font-sans text-[11px] text-ink/50">Worst pain</span>
+          </div>
         </div>
       </div>
 
-      <div className="mt-4 flex flex-col items-center gap-4 w-full">
-        <Button onClick={() => onSubmit(value)} size="lg" className="w-full text-lg h-14">
-          Confirm
+      {/* Submit */}
+      <div className="w-full space-y-3">
+        <Button
+          onClick={() => onSubmit(value)}
+          size="lg"
+          className="w-full text-base h-14"
+          style={{
+            background: value > 6 ? "var(--color-signal)" : value > 2 ? "var(--color-ink)" : "var(--color-recovery)",
+          }}
+        >
+          Confirm — Pain level {value}/10
         </Button>
-        <p className="text-center font-sans text-[11px] text-ink/40 uppercase tracking-wide">
-          Note: These pain thresholds are prototype defaults and not clinically calibrated.
-        </p>
+        {value >= 7 && (
+          <p className="text-center font-sans text-xs text-signal font-medium">
+            ⚠ High pain reported. This session will be paused for your safety.
+          </p>
+        )}
       </div>
     </div>
   )

@@ -12,55 +12,77 @@ export interface ExerciseState {
   formWarning: string | null
   formSignal: "good" | "poor"
   formFlags: string[]
+  /** 2-4 word in-rep coaching cue — only changes when content changes, no per-frame flicker */
+  liveCue: string | null
+  /** Whether the active joint triplet just crossed the rep top threshold (used to flash skeleton color) */
+  repPeakFlash: boolean
+  // Mode B properties
+  holdTimeMs: number
+  isHolding: boolean
 }
 
 const CONFIG = {
   KneeFlexion: {
     exercise_id: "knee_flexion",
-    landmarks_used: [24, 26, 28], // Right hip, knee, ankle (MediaPipe indices)
+    landmarks_used: [24, 26, 28] as [number, number, number], // Right hip, knee, ankle (MediaPipe indices)
     primary_joint: "knee",
-    angle_range_valid: [0, 160], // Degrees of flexion (180 - raw angle)
+    angle_range_valid: [0, 160] as [number, number], // Degrees of flexion (180 - raw angle)
     rep_start_angle: 20, // Must return below 20 deg to finish rep
     rep_top_angle: 90, // Must exceed 90 deg to count as a good rep
-    min_rep_duration_ms: 1000, 
+    min_rep_duration_ms: 1000,
     max_rep_duration_ms: 8000,
   },
   ShoulderAbduction: {
     exercise_id: "shoulder_abduction",
-    landmarks_used: [24, 12, 14], // Right hip, shoulder, elbow
+    landmarks_used: [24, 12, 14] as [number, number, number], // Right hip, shoulder, elbow
     primary_joint: "shoulder",
-    angle_range_valid: [0, 180], // Raw angle
+    angle_range_valid: [0, 180] as [number, number], // Raw angle
     rep_start_angle: 25,
     rep_top_angle: 90,
     min_rep_duration_ms: 800,
     max_rep_duration_ms: 6000,
-  }
+  },
 }
 
 export class ExerciseEngine {
-  public type: ExerciseType
+  public type: string
   public state: ExerciseState
-  public config: typeof CONFIG["KneeFlexion"]
+  public config: any // typeof CONFIG["KneeFlexion"] shape
 
   private minAngleThisRep: number = 999
   private repStartTimeMs: number = 0
   private lastAngle: number = 0
   private lastTimestampMs: number = 0
-  
+
   // Track visibility for current rep
   private repLostTracking: boolean = false
   // Track jerky movement
   private monotonicFails: number = 0
   private oppositeShoulderInitialY: number | null = null
 
-  constructor(type: ExerciseType, romModifier: number = 1.0) {
+  // Live cue debouncing — only update text when it actually changes
+  private lastCueText: string | null = null
+  private lastCueChangeMs: number = 0
+  private readonly CUE_DEBOUNCE_MS = 1500 // hold cue for at least this long before changing
+
+  public trackingMode: string
+  public targetHoldSeconds: number | null
+
+  constructor(type: string, romModifier: number = 1.0, dynamicConfig?: any, trackingMode: string = "A", targetHoldSeconds: number | null = null) {
     this.type = type
-    
+    this.trackingMode = trackingMode
+    this.targetHoldSeconds = targetHoldSeconds
+
     // Copy config and apply ROM modifier to the rep_top_angle
-    const baseConfig = CONFIG[type]
+    const baseConfig = dynamicConfig || (CONFIG as any)[type]
+    
+    if (!baseConfig) {
+      throw new Error(`Exercise config missing for ${type}`)
+    }
+
     this.config = {
       ...baseConfig,
-      rep_top_angle: baseConfig.rep_top_angle * romModifier
+      rep_top_angle: baseConfig.rep_top_angle * romModifier,
     }
 
     this.state = {
@@ -73,6 +95,19 @@ export class ExerciseEngine {
       formWarning: null,
       formSignal: "good",
       formFlags: [],
+      liveCue: null,
+      repPeakFlash: false,
+      holdTimeMs: 0,
+      isHolding: false,
+    }
+  }
+
+  /** Update the liveCue only when the text changes and debounce period has elapsed */
+  private setLiveCue(cue: string | null, nowMs: number) {
+    if (cue !== this.lastCueText && nowMs - this.lastCueChangeMs > this.CUE_DEBOUNCE_MS) {
+      this.lastCueText = cue
+      this.lastCueChangeMs = nowMs
+      this.state.liveCue = cue
     }
   }
 
@@ -80,11 +115,17 @@ export class ExerciseEngine {
     // Pick side (Right vs Left).
     const config = this.config
     let [aIdx, bIdx, cIdx] = config.landmarks_used
-    
+
     // Check if left side is more visible
-    const rightVisibility = (landmarks[aIdx]?.visibility || 0) + (landmarks[bIdx]?.visibility || 0) + (landmarks[cIdx]?.visibility || 0)
-    const leftVisibility = (landmarks[aIdx - 1]?.visibility || 0) + (landmarks[bIdx - 1]?.visibility || 0) + (landmarks[cIdx - 1]?.visibility || 0)
-    
+    const rightVisibility =
+      (landmarks[aIdx]?.visibility || 0) +
+      (landmarks[bIdx]?.visibility || 0) +
+      (landmarks[cIdx]?.visibility || 0)
+    const leftVisibility =
+      (landmarks[aIdx - 1]?.visibility || 0) +
+      (landmarks[bIdx - 1]?.visibility || 0) +
+      (landmarks[cIdx - 1]?.visibility || 0)
+
     let isLeftSide = false
     if (leftVisibility > rightVisibility) {
       aIdx -= 1
@@ -96,20 +137,31 @@ export class ExerciseEngine {
     const a = landmarks[aIdx]
     const b = landmarks[bIdx]
     const c = landmarks[cIdx]
-    
+
     // Compensation check (opposite shoulder tilt)
     const oppositeShoulderIdx = isLeftSide ? 12 : 11 // 12=Right, 11=Left
     const oppositeShoulder = landmarks[oppositeShoulderIdx]
 
-    if (!a || !b || !c || (a.visibility && a.visibility < 0.5) || (b.visibility && b.visibility < 0.5)) {
+    if (
+      !a ||
+      !b ||
+      !c ||
+      (a.visibility && a.visibility < 0.5) ||
+      (b.visibility && b.visibility < 0.5)
+    ) {
       this.state.formWarning = "Tracking lost — make sure your full body is in frame."
       this.state.formSignal = "poor"
       this.repLostTracking = true
+      this.setLiveCue("Get in frame", timestampMs)
       return this.state
     }
 
     // Capture initial opposite shoulder position for compensation checking
-    if (this.state.phase === "setup" && oppositeShoulder && (oppositeShoulder.visibility || 0) > 0.5) {
+    if (
+      this.state.phase === "setup" &&
+      oppositeShoulder &&
+      (oppositeShoulder.visibility || 0) > 0.5
+    ) {
       this.oppositeShoulderInitialY = oppositeShoulder.y
     }
 
@@ -124,21 +176,35 @@ export class ExerciseEngine {
     }
 
     this.state.currentAngle = Math.round(computedAngle)
-    
+
     // Check for compensation during rep
-    if (this.state.phase !== "setup" && this.oppositeShoulderInitialY !== null && oppositeShoulder && (oppositeShoulder.visibility || 0) > 0.5) {
-       // if opposite shoulder moves vertically more than a threshold (e.g., 0.05 normalized screen height)
-       if (Math.abs(oppositeShoulder.y - this.oppositeShoulderInitialY) > 0.08) {
-          if (!this.state.formFlags.includes("Asymmetric compensation (shoulder tilt)")) {
-            this.state.formFlags.push("Asymmetric compensation (shoulder tilt)")
-          }
-          this.state.formSignal = "poor"
-          this.state.formWarning = "Keep your opposite shoulder still."
-       }
+    if (
+      this.state.phase !== "setup" &&
+      this.oppositeShoulderInitialY !== null &&
+      oppositeShoulder &&
+      (oppositeShoulder.visibility || 0) > 0.5
+    ) {
+      if (Math.abs(oppositeShoulder.y - this.oppositeShoulderInitialY) > 0.08) {
+        if (!this.state.formFlags.includes("Asymmetric compensation (shoulder tilt)")) {
+          this.state.formFlags.push("Asymmetric compensation (shoulder tilt)")
+        }
+        this.state.formSignal = "poor"
+        this.state.formWarning = "Keep your opposite shoulder still."
+        this.setLiveCue("Level shoulders", timestampMs)
+      }
+    }
+
+    // Reset peak flash before this frame's evaluation
+    this.state.repPeakFlash = false
+
+    // Setup-phase cue: prompt user to get into starting position
+    if (this.state.phase === "setup") {
+      const exerciseLabel = this.type === "KneeFlexion" ? "leg straight" : "arm at side"
+      this.setLiveCue(`Start: ${exerciseLabel}`, timestampMs)
     }
 
     this.updateState(timestampMs)
-    
+
     this.lastAngle = this.state.currentAngle
     this.lastTimestampMs = timestampMs
 
@@ -158,9 +224,54 @@ export class ExerciseEngine {
     }
 
     // Basic form recovery if inside valid bounds and no active compensation triggered this frame
-    if (this.state.formWarning === "Tracking lost — make sure your full body is in frame." || this.state.formWarning === "Angle out of plausible bounds.") {
-       this.state.formWarning = null
-       this.state.formSignal = "good"
+    if (
+      this.state.formWarning === "Tracking lost — make sure your full body is in frame." ||
+      this.state.formWarning === "Angle out of plausible bounds."
+    ) {
+      this.state.formWarning = null
+      this.state.formSignal = "good"
+    }
+
+    if (this.trackingMode === "B") {
+      // Mode B (Hold-Timed) Logic
+      if (angle > this.state.maxAngleThisRep) {
+        this.state.maxAngleThisRep = angle
+        if (angle > (this.state.sessionMaxValidAngle || 0)) {
+          this.state.sessionMaxValidAngle = angle
+        }
+      }
+
+      // 10 degree tolerance to not instantly drop if they slightly waver
+      const targetThreshold = config.rep_top_angle - 10
+
+      if (angle >= targetThreshold) {
+        if (!this.state.isHolding) {
+          this.state.isHolding = true
+        }
+        
+        // Accumulate time if we have a valid previous frame
+        if (this.lastTimestampMs > 0 && !this.repLostTracking) {
+          const deltaMs = timestampMs - this.lastTimestampMs
+          // Cap delta to prevent huge jumps if tab was backgrounded
+          if (deltaMs < 1000) {
+            this.state.holdTimeMs += deltaMs
+          }
+        }
+        
+        this.state.formSignal = "good"
+        this.setLiveCue("Holding position...", timestampMs)
+      } else {
+        if (this.state.isHolding) {
+          this.state.isHolding = false
+          if (!this.state.formFlags.includes("Lost hold position")) {
+            this.state.formFlags.push("Lost hold position")
+          }
+        }
+        this.state.formSignal = "poor"
+        this.setLiveCue("Hold the position!", timestampMs)
+      }
+
+      return
     }
 
     if (this.state.phase === "setup") {
@@ -172,56 +283,80 @@ export class ExerciseEngine {
         this.monotonicFails = 0
         this.state.formSignal = "good"
         this.state.formWarning = null
+        this.setLiveCue("Keep lifting!", timestampMs)
       }
     } else if (this.state.phase === "concentric") {
       // Check jerkiness (angle dropping significantly during concentric phase)
       if (angle < this.lastAngle - 5) {
-         this.monotonicFails += 1
-         if (this.monotonicFails > 3) {
-            this.state.formSignal = "poor"
-            if (!this.state.formFlags.includes("Jerky movement")) {
-               this.state.formFlags.push("Jerky movement")
-            }
-         }
+        this.monotonicFails += 1
+        if (this.monotonicFails > 3) {
+          this.state.formSignal = "poor"
+          this.setLiveCue("Slow down", timestampMs)
+          if (!this.state.formFlags.includes("Jerky movement")) {
+            this.state.formFlags.push("Jerky movement")
+          }
+        }
+      } else if (this.state.formSignal === "good") {
+        // Provide guidance based on progress toward top angle
+        const progress = angle / config.rep_top_angle
+        if (angle >= config.rep_top_angle) {
+          this.setLiveCue("Hold it!", timestampMs)
+        } else if (progress >= 0.8) {
+          this.setLiveCue("Almost there!", timestampMs)
+        } else {
+          this.setLiveCue("Keep lifting!", timestampMs)
+        }
       }
 
       if (angle > this.state.maxAngleThisRep) {
         this.state.maxAngleThisRep = angle
       }
-      
+
+      // Flash joint color when first crossing the rep_top_angle threshold
+      if (
+        angle >= config.rep_top_angle &&
+        this.lastAngle < config.rep_top_angle
+      ) {
+        this.state.repPeakFlash = true
+      }
+
       // Switch to eccentric if we drop by 15 deg from max
       if (this.state.maxAngleThisRep - angle > 15) {
         this.state.phase = "eccentric"
         this.monotonicFails = 0
+        this.setLiveCue("Lower slowly", timestampMs)
       }
     } else if (this.state.phase === "eccentric") {
       // Check jerkiness (angle increasing significantly during eccentric phase)
       if (angle > this.lastAngle + 5) {
-         this.monotonicFails += 1
-         if (this.monotonicFails > 3) {
-            this.state.formSignal = "poor"
-         }
+        this.monotonicFails += 1
+        if (this.monotonicFails > 3) {
+          this.state.formSignal = "poor"
+          this.setLiveCue("Control descent", timestampMs)
+        }
+      } else if (this.state.formSignal === "good") {
+        this.setLiveCue("Lower slowly", timestampMs)
       }
 
       if (angle <= config.rep_start_angle) {
         // Evaluate if it was a valid rep
         const durationMs = timestampMs - this.repStartTimeMs
-        
+
         let validRep = true
         let rejectReason = ""
 
         if (this.repLostTracking) {
-           validRep = false
-           rejectReason = "Tracking lost during rep"
+          validRep = false
+          rejectReason = "Tracking lost during rep"
         } else if (this.state.maxAngleThisRep < config.rep_top_angle) {
-           validRep = false
-           rejectReason = "Range too small"
+          validRep = false
+          rejectReason = "Range too small"
         } else if (durationMs < config.min_rep_duration_ms) {
-           validRep = false
-           rejectReason = "Too fast"
+          validRep = false
+          rejectReason = "Too fast"
         } else if (durationMs > config.max_rep_duration_ms) {
-           validRep = false
-           rejectReason = "Too slow (lost tracking?)"
+          validRep = false
+          rejectReason = "Too slow (lost tracking?)"
         }
 
         if (validRep) {
@@ -231,15 +366,17 @@ export class ExerciseEngine {
           if (this.state.maxAngleThisRep > (this.state.sessionMaxValidAngle || 0)) {
             this.state.sessionMaxValidAngle = this.state.maxAngleThisRep
           }
+          this.setLiveCue("Good rep!", timestampMs)
         } else {
           this.state.rejectedReps += 1
-          this.state.formWarning = `Rep rejected: ${rejectReason}`
+          this.state.formWarning = `Rep not counted: ${rejectReason}`
           this.state.formSignal = "poor"
+          this.setLiveCue(rejectReason === "Range too small" ? "Full range" : "Try again", timestampMs)
           if (!this.state.formFlags.includes(`Incomplete/Rejected: ${rejectReason}`)) {
             this.state.formFlags.push(`Incomplete/Rejected: ${rejectReason}`)
           }
         }
-        
+
         // Reset for next rep
         this.state.phase = "setup"
         this.state.maxAngleThisRep = 0

@@ -1,5 +1,5 @@
-import { startOnboarding } from "./actions"
 import { InstallButton } from "@/components/InstallButton"
+import Link from "next/link"
 
 export default function Home() {
   return (
@@ -25,15 +25,15 @@ export default function Home() {
           </p>
         </div>
 
-        <form action={startOnboarding} className="flex flex-col sm:flex-row items-center justify-center gap-4">
-          <button
-            type="submit"
-            className="w-full sm:w-auto px-8 py-4 bg-ink text-paper rounded-full font-medium hover:bg-ink/90 hover:-translate-y-1 transition-all duration-300 shadow-lg shadow-ink/20 text-lg"
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <Link
+            href="/register"
+            className="w-full sm:w-auto px-8 py-4 bg-ink text-paper rounded-full font-medium hover:bg-ink/90 hover:-translate-y-1 transition-all duration-300 shadow-lg shadow-ink/20 text-lg text-center"
           >
             Get Started
-          </button>
+          </Link>
           <InstallButton />
-        </form>
+        </div>
 
         {/* Feature Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-12 mt-12 border-t border-line/50 text-left">

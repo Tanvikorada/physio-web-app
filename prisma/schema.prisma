@@ -12,12 +12,16 @@ datasource db {
 model User {
   id        String    @id @default(cuid())
   email     String?   @unique
+  password  String?
   name      String?
   role      String    @default("patient")
+  language  String    @default("en")
+  largeText Boolean   @default(false)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   
   sessions  Session[]
+  savedExercises SavedExercise[]
 }
 
 model Exercise {
@@ -25,6 +29,15 @@ model Exercise {
   name        String
   description String?
   targetROM   Float?   // Clinically normative target range of motion
+  
+  // Phase A: Library
+  categories          String[] // Array of categories this exercise belongs to
+  trackingMode        String   @default("D") // A, B, C, D
+  instructionsShort   String?
+  instructionsFull    String?
+  targetHoldSeconds   Int?
+  landmarkConfig      Json?
+
   
   // Phase 3: Escalation
   escalationFlag Boolean @default(false)
@@ -35,6 +48,7 @@ model Exercise {
 
   sessions    Session[]
   painRecords PainRecord[]
+  savedBy     SavedExercise[]
 }
 
 model Session {
@@ -79,4 +93,15 @@ model PainRecord {
   
   exerciseId String
   exercise   Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+}
+
+model SavedExercise {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exerciseId String
+  exercise   Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  savedAt    DateTime @default(now())
+
+  @@unique([userId, exerciseId])
 }

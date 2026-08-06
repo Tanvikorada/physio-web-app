@@ -1,19 +1,20 @@
 import prisma from "@/lib/prisma"
 import { ReportClient } from "@/components/report/ReportClient"
 
-import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 
 export const dynamic = "force-dynamic"
 
 export default async function ReportPage({ searchParams }: { searchParams: { range?: string } }) {
   const range = searchParams.range || "all"
   
-  const cookieStore = await cookies()
-  const userId = cookieStore.get("userId")?.value
+  const session = await getServerSession(authOptions)
+  const userId = session?.user?.id
 
   if (!userId) {
-    redirect("/")
+    redirect("/login")
   }
 
   const user = await prisma.user.findUnique({

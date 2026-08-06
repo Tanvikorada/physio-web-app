@@ -3,18 +3,19 @@ import { TrendChart } from "@/components/dashboard/TrendChart"
 import { ExportModal } from "@/components/dashboard/ExportModal"
 import prisma from "@/lib/prisma"
 import Link from "next/link"
-
-import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
+
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 
 export const dynamic = "force-dynamic"
 
 export default async function DashboardPage() {
-  const cookieStore = await cookies()
-  const userId = cookieStore.get("userId")?.value
+  const session = await getServerSession(authOptions)
+  const userId = session?.user?.id
 
   if (!userId) {
-    redirect("/")
+    redirect("/login")
   }
 
   const user = await prisma.user.findUnique({
@@ -98,14 +99,19 @@ export default async function DashboardPage() {
 
           return (
             <section key={exercise.id} className="space-y-8">
-              <h2 className="font-serif text-2xl text-ink">{exercise.name}</h2>
+              <div className="flex items-center justify-between">
+                <h2 className="font-serif text-2xl text-ink">{exercise.name}</h2>
+                <span className="font-sans text-xs text-ink/40 uppercase tracking-wide">
+                  {completedSessions.length} session{completedSessions.length !== 1 ? "s" : ""}
+                </span>
+              </div>
               
               {sessions.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 px-6 rounded-2xl border-2 border-dashed border-line/50 bg-white/50 text-center space-y-4">
                   <div className="text-4xl">🎯</div>
                   <h3 className="font-serif text-xl font-medium text-ink">Ready to begin?</h3>
                   <p className="text-ink/70 font-sans max-w-sm">
-                    You haven't tracked any sessions for {exercise.name} yet. Start your first session to unlock live AI tracking and insights.
+                    You haven&apos;t tracked any sessions for {exercise.name} yet. Start your first session to unlock live AI tracking and insights.
                   </p>
                   <Link
                     href={`/session?exercise=${encodeURIComponent(exercise.name)}`}
@@ -128,43 +134,57 @@ export default async function DashboardPage() {
                     </div>
                   )}
 
-                  {/* Arc visual */}
-                  <div className="flex flex-col items-center justify-center space-y-4">
-                    <ArcIndicator currentValue={currentROM} targetValue={targetROM} />
-                    <div className="text-center">
-                      <p className="font-sans font-medium text-ink/80 text-sm">
-                        {percentage}% toward your clinical target
+                  {/* Arc + rep stats */}
+                  <div className="rounded-2xl border border-line bg-white p-6 shadow-sm">
+                    <p className="font-sans text-xs text-ink/40 uppercase tracking-wide mb-4">Latest Session</p>
+                    <div className="flex flex-col items-center gap-4">
+                      <ArcIndicator currentValue={currentROM} targetValue={targetROM} />
+                      <p className="font-sans font-medium text-ink/80 text-sm text-center">
+                        {percentage}% toward clinical target ({Math.round(currentROM)}° of {targetROM}°)
                       </p>
-                      {latestSession && (
-                        <p className="font-sans text-xs text-ink/60 mt-1">
-                          Last session: {validReps} valid reps, {rejectedReps} not counted
-                        </p>
-                      )}
                     </div>
+
+                    {latestSession && (
+                      <div className="mt-5 grid grid-cols-2 gap-3 border-t border-line/40 pt-5">
+                        <div className="flex flex-col items-center rounded-xl bg-recovery/8 py-4">
+                          <span className="font-serif text-3xl text-recovery">{validReps}</span>
+                          <span className="font-sans text-xs text-ink/50 uppercase tracking-wide mt-1">Valid reps</span>
+                        </div>
+                        <div className="flex flex-col items-center rounded-xl bg-signal/8 py-4">
+                          <span className={`font-serif text-3xl ${rejectedReps > 0 ? "text-signal" : "text-ink/30"}`}>
+                            {rejectedReps}
+                          </span>
+                          <span className="font-sans text-xs text-ink/50 uppercase tracking-wide mt-1">Not counted</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {hasCompensation && (
+                      <p className="font-sans text-xs text-signal font-medium mt-3 text-center">
+                        ⚠ Compensation or form issues detected in last session
+                      </p>
+                    )}
                   </div>
 
                   {/* Trend Chart */}
-                  <div>
+                  <div className="rounded-2xl border border-line bg-white p-6 shadow-sm">
+                    <p className="font-sans text-xs text-ink/40 uppercase tracking-wide mb-4">Range of Motion Over Time</p>
                     <TrendChart data={chartData} targetROM={targetROM} />
-                    <div className="mt-4 text-center">
-                      <p className="font-serif text-ink text-lg leading-relaxed">
+                    <div className="mt-5 border-t border-line/40 pt-5">
+                      <p className="font-sans text-xs text-ink/40 uppercase tracking-wide mb-2">AI Trend Analysis</p>
+                      <p className="font-serif text-ink text-base leading-relaxed">
                         {summary}
                       </p>
-                      {hasCompensation && (
-                        <p className="font-sans text-sm text-signal mt-2 font-medium">
-                          Some compensation or form issues detected in your last session.
-                        </p>
-                      )}
                     </div>
                   </div>
 
                   {/* CTA */}
-                  <div className="flex justify-center pt-4 border-t border-line/50">
+                  <div className="flex justify-center pt-2">
                     <Link
                       href={`/session?exercise=${encodeURIComponent(exercise.name)}`}
-                      className="bg-recovery text-white px-8 py-3 rounded-full font-sans font-medium hover:opacity-90 transition-opacity"
+                      className="bg-recovery text-white px-8 py-3 rounded-full font-sans font-medium hover:opacity-90 transition-opacity shadow-md shadow-recovery/20"
                     >
-                      Start Today's Session
+                      Start Today&apos;s Session
                     </Link>
                   </div>
                 </>
