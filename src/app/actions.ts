@@ -52,13 +52,5 @@ export async function startOnboarding() {
     })
   }
 
-  // Securely set the cookie for 1 year
-  cookieStore.set("userId", newUser.id, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    maxAge: 60 * 60 * 24 * 365,
-    path: "/"
-  })
-
   redirect("/dashboard")
 }
