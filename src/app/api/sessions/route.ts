@@ -38,7 +38,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const data = await req.json()
-    const { exerciseName, romAchieved, repCount, formAccuracyScore, painScorePre, painScorePost, status, blockedReason } = data
+    const { exerciseName, romAchieved, validRepCount, rejectedRepCount, formQualityFlags, formAccuracyScore, painScorePre, painScorePost, status, blockedReason } = data
 
     const cookieStore = await cookies()
     const userId = cookieStore.get("userId")?.value
@@ -63,7 +63,9 @@ export async function POST(req: Request) {
         status: status || "completed",
         blockedReason: blockedReason || null,
         romAchieved: romAchieved || 0,
-        repCount: repCount || 0,
+        validRepCount: validRepCount || 0,
+        rejectedRepCount: rejectedRepCount || 0,
+        formQualityFlags: formQualityFlags || [],
         formAccuracyScore,
         painScorePre,
         painScorePost,

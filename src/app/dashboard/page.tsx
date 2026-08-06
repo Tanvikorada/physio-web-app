@@ -81,6 +81,11 @@ export default async function DashboardPage() {
           const completedSessions = sessions.filter(s => s.status === "completed")
           const latestSession = completedSessions[completedSessions.length - 1]
           const currentROM = latestSession?.romAchieved || 0
+          const validReps = latestSession?.validRepCount || 0
+          const rejectedReps = latestSession?.rejectedRepCount || 0
+          const formFlags = latestSession?.formQualityFlags || []
+          const hasCompensation = formFlags.some(flag => flag.toLowerCase().includes("compensation") || flag.toLowerCase().includes("jerky"))
+
           const targetROM = exercise.targetROM || 180
           const percentage = Math.min(100, Math.round((currentROM / targetROM) * 100))
           const summary = summaries[idx]
@@ -126,17 +131,31 @@ export default async function DashboardPage() {
                   {/* Arc visual */}
                   <div className="flex flex-col items-center justify-center space-y-4">
                     <ArcIndicator currentValue={currentROM} targetValue={targetROM} />
-                    <p className="font-sans font-medium text-ink/80 text-sm">
-                      {percentage}% toward your clinical target
-                    </p>
+                    <div className="text-center">
+                      <p className="font-sans font-medium text-ink/80 text-sm">
+                        {percentage}% toward your clinical target
+                      </p>
+                      {latestSession && (
+                        <p className="font-sans text-xs text-ink/60 mt-1">
+                          Last session: {validReps} valid reps, {rejectedReps} not counted
+                        </p>
+                      )}
+                    </div>
                   </div>
 
                   {/* Trend Chart */}
                   <div>
                     <TrendChart data={chartData} targetROM={targetROM} />
-                    <p className="mt-4 font-serif text-ink text-lg leading-relaxed text-center">
-                      {summary}
-                    </p>
+                    <div className="mt-4 text-center">
+                      <p className="font-serif text-ink text-lg leading-relaxed">
+                        {summary}
+                      </p>
+                      {hasCompensation && (
+                        <p className="font-sans text-sm text-signal mt-2 font-medium">
+                          Some compensation or form issues detected in your last session.
+                        </p>
+                      )}
+                    </div>
                   </div>
 
                   {/* CTA */}

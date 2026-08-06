@@ -42,9 +42,12 @@ model Session {
   date             DateTime @default(now())
   
   // Phase 2: Persistence
-  romAchieved      Float?
-  formAccuracyScore Float?
-  repCount         Int?
+  romAchieved         Float?
+  validRepCount       Int?
+  rejectedRepCount    Int?
+  formQualityFlags    String[]
+  groqSessionFeedback String?
+  formAccuracyScore   Float?
   
   // Phase 3 & 4 additions
   painScorePre     Int?

@@ -36,8 +36,10 @@ function SessionPageContent() {
 
   // Results
   const [finalReps, setFinalReps] = useState(0)
+  const [rejectedReps, setRejectedReps] = useState(0)
   const [maxAngle, setMaxAngle] = useState(0)
   const [formWarning, setFormWarning] = useState<string | null>(null)
+  const [formFlags, setFormFlags] = useState<string[]>([])
   
   // LLM Feedback
   const [feedback, setFeedback] = useState<string | null>(null)
@@ -69,23 +71,44 @@ function SessionPageContent() {
     }
   }
 
-  const handlePrePainSubmit = (score: number) => {
+  const handlePrePainSubmit = async (score: number) => {
     setPrePain(score)
-    // Deterministic modification logic
+    
+    // Phase 3 Adaptive Logic: Hard block if score >= 7 (Red Light)
     if (score >= 7) {
-      setTargetModifier({ message: "Pain reported is high — today's target has been reduced for your safety.", repModifier: 0.6, romModifier: 0.8 })
-    } else if (score >= 4) {
-      setTargetModifier({ message: "Pain reported is moderate — today's target has been slightly reduced.", repModifier: 0.8, romModifier: 1.0 })
+      setSessionState("blocked")
+      try {
+        await fetch("/api/sessions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            exerciseName: exercise === "KneeFlexion" ? "Knee Flexion" : "Shoulder Abduction",
+            status: "blocked",
+            blockedReason: "Pre-session pain score >= 7 (Red Light zone). Prevented to avoid tissue damage.",
+            painScorePre: score
+          })
+        })
+      } catch (e) {
+        console.error("Failed to save blocked session", e)
+      }
+      return
+    } 
+    
+    // Adaptive Logic: Modify target if score >= 4 (Yellow Light)
+    if (score >= 4) {
+      setTargetModifier({ message: "Pain reported is moderate — your target Range of Motion has been reduced by 20%.", repModifier: 1.0, romModifier: 0.8 })
     } else {
       setTargetModifier(null)
     }
     setSessionState("active")
   }
 
-  const handleActiveSessionComplete = (finalData: { reps: number; maxAngle: number; formWarning: string | null }) => {
+  const handleActiveSessionComplete = (finalData: { reps: number; rejectedReps: number; maxAngle: number; formWarning: string | null; formFlags: string[] }) => {
     setFinalReps(finalData.reps)
+    setRejectedReps(finalData.rejectedReps)
     setMaxAngle(finalData.maxAngle)
     setFormWarning(finalData.formWarning)
+    setFormFlags(finalData.formFlags)
     setSessionState("post-pain")
   }
 
@@ -93,47 +116,65 @@ function SessionPageContent() {
     setPostPain(score)
     setSessionState("summary")
     
+    let createdSessionId: string | undefined = undefined;
+    
     // Save to Database
     try {
-      await fetch("/api/sessions", {
+      const formAccuracyScore = (finalReps + rejectedReps > 0) ? (finalReps / (finalReps + rejectedReps)) : 1.0;
+      
+      const sessionRes = await fetch("/api/sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           exerciseName: exercise === "KneeFlexion" ? "Knee Flexion" : "Shoulder Abduction",
           status: "completed",
           romAchieved: maxAngle,
-          repCount: finalReps,
-          formAccuracyScore: formWarning ? 0.5 : 1.0,
+          validRepCount: finalReps,
+          rejectedRepCount: rejectedReps,
+          formQualityFlags: formFlags,
+          formAccuracyScore: formAccuracyScore,
           painScorePre: prePain,
           painScorePost: score,
         })
       })
+      
+      if (sessionRes.ok) {
+        const sessionData = await sessionRes.json()
+        createdSessionId = sessionData.session?.id
+      }
     } catch (e) {
       console.error("Failed to save session", e)
     }
 
-    // Call Groq (legacy feedback, this isn't the escalation note)
+    // Call Groq AI Feedback
     setIsGeneratingFeedback(true)
     try {
       const res = await fetch("/api/feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          sessionId: createdSessionId,
           exercise,
           reps: finalReps,
+          rejectedReps: rejectedReps,
           maxAngle: maxAngle,
-          formScore: formWarning
+          formFlagsObserved: formFlags,
         })
       })
+      
+      if (!res.ok) {
+        throw new Error("API responded with failure")
+      }
+      
       const data = await res.json()
       if (data.feedback) {
         setFeedback(data.feedback)
       } else {
-        setFeedback("Session completed.")
+        throw new Error("No feedback in response")
       }
     } catch (err) {
       console.error(err)
-      setFeedback("Failed to load feedback. Great job completing your session.")
+      setFeedback("AI feedback is currently unavailable. Great job completing your session!")
     } finally {
       setIsGeneratingFeedback(false)
     }
@@ -180,7 +221,7 @@ function SessionPageContent() {
         <div className="w-16 h-16 rounded-full bg-signal/10 flex items-center justify-center mb-4 text-signal text-3xl font-serif">!</div>
         <h1 className="font-serif text-3xl text-ink">Session Paused</h1>
         <p className="font-sans text-lg text-ink/80 leading-relaxed">
-          Based on what you've reported, we recommend checking in with your physiotherapist before continuing this exercise today — this isn't something to work through with the app right now.
+          You reported a pain score in the "Red Light" zone (7-10). To prevent potential tissue damage, this exercise has been paused. We strongly recommend checking in with your physiotherapist before continuing.
         </p>
         <div className="pt-8">
           <Link href="/dashboard" className="inline-flex h-12 items-center justify-center rounded-md border border-input bg-background px-8 text-base font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground">

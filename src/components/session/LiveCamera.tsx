@@ -10,17 +10,16 @@ import { Point3D } from "@/lib/exercises/angles"
 
 interface LiveCameraProps {
   exerciseType: ExerciseType
-  onSessionComplete: (finalState: { reps: number; maxAngle: number; formWarning: string | null }) => void
+  onSessionComplete: (finalState: { reps: number; rejectedReps: number; maxAngle: number; formWarning: string | null; formFlags: string[] }) => void
   targetModifier?: { message: string, repModifier: number, romModifier: number } | null
 }
 
 export function LiveCamera({ exerciseType, onSessionComplete, targetModifier }: LiveCameraProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
-  const [engine] = useState(() => new ExerciseEngine(exerciseType))
+  const [engine] = useState(() => new ExerciseEngine(exerciseType, targetModifier?.romModifier ?? 1.0))
   const [state, setState] = useState<ExerciseState>(engine.state)
   const [isInitializing, setIsInitializing] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [overallMaxAngle, setOverallMaxAngle] = useState(0)
 
   const landmarkerRef = useRef<PoseLandmarker | null>(null)
   const requestRef = useRef<number>(null)
@@ -81,17 +80,13 @@ export function LiveCamera({ exerciseType, onSessionComplete, targetModifier }: 
             visibility: lm.visibility,
           }))
 
-          const newState = engine.processLandmarks(mappedLandmarks)
+          const newState = engine.processLandmarks(mappedLandmarks, startTimeMs)
           setState({ ...newState })
-          
-          if (newState.currentAngle > overallMaxAngle) {
-            setOverallMaxAngle(newState.currentAngle)
-          }
         }
       }
     }
     requestRef.current = requestAnimationFrame(renderLoop)
-  }, [engine, overallMaxAngle])
+  }, [engine])
 
   useEffect(() => {
     initCamera()
@@ -116,8 +111,10 @@ export function LiveCamera({ exerciseType, onSessionComplete, targetModifier }: 
   const handleEndSession = () => {
     onSessionComplete({
       reps: state.reps,
-      maxAngle: overallMaxAngle,
+      rejectedReps: state.rejectedReps,
+      maxAngle: state.sessionMaxValidAngle || 0,
       formWarning: state.formWarning,
+      formFlags: state.formFlags,
     })
   }
 
@@ -175,16 +172,11 @@ export function LiveCamera({ exerciseType, onSessionComplete, targetModifier }: 
             <p className="font-sans text-paper/70 animate-pulse">Initializing camera & AI...</p>
           ) : (
             <div className="relative">
-              {/* Force white/light coloring for the arc text by wrapping in a div that overrides text color if we had to, but ArcIndicator uses text-ink. 
-                  Let's pass a custom class or wrap it in a container that forces text-paper.
-                  Actually, ArcIndicator hardcodes `text-ink`. 
-                  Let's wrap it in a div with a CSS filter to invert it if needed, or we just leave it and fix ArcIndicator to accept a text color prop.
-                  For now, a white background rounded wrapper is cleanest for contrast against the dark video. */}
-              <div className="rounded-full bg-paper p-4 shadow-2xl">
+              <div className={`rounded-full bg-paper p-4 shadow-2xl transition-all duration-300 ${state.formSignal === "poor" ? "ring-4 ring-signal shadow-signal/30" : "ring-0"}`}>
                 <ArcIndicator 
                   currentValue={state.currentAngle} 
                   targetValue={targetAngle} 
-                  color={state.formWarning ? "signal" : "recovery"}
+                  color={state.formSignal === "poor" ? "signal" : "recovery"}
                   animated={false} // Real-time feed needs instant updates, not 600ms trailing anim
                 />
               </div>
