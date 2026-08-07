@@ -12,8 +12,6 @@ import { useTranslation } from "@/components/DictionaryProvider"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MediaPipe 33-point anatomical skeleton connections
-// Same as PoseLandmarker.POSE_CONNECTIONS but defined here to avoid the
-// static-property access issue in client bundles.
 // ─────────────────────────────────────────────────────────────────────────────
 const POSE_CONNECTIONS: [number, number][] = [
   // Face
@@ -41,6 +39,23 @@ const HAND_CONNECTIONS: [number, number][] = [
   [5, 9], [9, 13], [13, 17], // Palm arcs
   [0, 17] // Palm closing
 ]
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Accuracy constants
+// ─────────────────────────────────────────────────────────────────────────────
+const EMA_ALPHA = 0.35           // Landmark smoothing factor (lower = smoother but more lag)
+const CONFIDENCE_THRESHOLD = 0.6 // Minimum per-landmark visibility to accept a frame
+const CALIBRATION_FRAMES = 60    // Number of frames to hold still during calibration (~2s at 30fps)
+
+// Joint name mapping for user-facing cue messages
+const JOINT_NAMES: Record<number, string> = {
+  11: "left shoulder", 12: "right shoulder",
+  13: "left elbow", 14: "right elbow",
+  15: "left wrist", 16: "right wrist",
+  23: "left hip", 24: "right hip",
+  25: "left knee", 26: "right knee",
+  27: "left ankle", 28: "right ankle",
+}
 
 interface LiveCameraProps {
   exerciseType: string
@@ -84,9 +99,39 @@ export function LiveCamera({ exerciseType, onSessionComplete, targetModifier, dy
   const requestRef = useRef<number | null>(null)
   const lastVideoTimeRef = useRef<number>(-1)
 
+  // ── EMA smoothing: per-landmark smoothed positions ─────────────────────────
+  const smoothedLandmarksRef = useRef<Map<number, Point3D>>(new Map())
+
+  const applyEMASmoothing = useCallback((rawLandmarks: Point3D[]): Point3D[] => {
+    return rawLandmarks.map((lm, i) => {
+      const prev = smoothedLandmarksRef.current.get(i)
+      if (!prev) {
+        smoothedLandmarksRef.current.set(i, { ...lm })
+        return lm
+      }
+      const smoothed: Point3D = {
+        x: EMA_ALPHA * lm.x + (1 - EMA_ALPHA) * prev.x,
+        y: EMA_ALPHA * lm.y + (1 - EMA_ALPHA) * prev.y,
+        z: EMA_ALPHA * lm.z + (1 - EMA_ALPHA) * prev.z,
+        visibility: lm.visibility, // Don't smooth visibility — use raw value for gating
+      }
+      smoothedLandmarksRef.current.set(i, smoothed)
+      return smoothed
+    })
+  }, [])
+
+  // ── Calibration state ──────────────────────────────────────────────────────
+  const calibrationFramesRef = useRef(0)
+  const [calibrationPhase, setCalibrationPhase] = useState<"calibrating" | "calibration-failed" | "ready">("calibrating")
+  const [calibrationProgress, setCalibrationProgress] = useState(0)
+  const [calibrationFailReason, setCalibrationFailReason] = useState<string | null>(null)
+  const calibrationPhaseRef = useRef<"calibrating" | "calibration-failed" | "ready">("calibrating")
+
+  // ── Confidence-gated tracking cue ─────────────────────────────────────────
+  const [lowConfidenceCue, setLowConfidenceCue] = useState<string | null>(null)
+
   // ── Camera init ────────────────────────────────────────────────────────────
   const startCamera = useCallback(async (mode: "user" | "environment") => {
-    // Stop any existing stream
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop())
       streamRef.current = null
@@ -151,7 +196,6 @@ export function LiveCamera({ exerciseType, onSessionComplete, targetModifier, dy
       const rect = video.getBoundingClientRect()
       if (rect.width === 0 || rect.height === 0) return
 
-      // Match canvas to rendered video size
       canvas.width = rect.width
       canvas.height = rect.height
 
@@ -160,27 +204,22 @@ export function LiveCamera({ exerciseType, onSessionComplete, targetModifier, dy
 
       ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-      // The video uses object-cover: we need to map normalized [0,1] coordinates
-      // to the cropped/scaled pixel space that actually appears on screen.
       const videoAspect = video.videoWidth / video.videoHeight
       const canvasAspect = canvas.width / canvas.height
       let drawW: number, drawH: number, offsetX: number, offsetY: number
 
       if (videoAspect > canvasAspect) {
-        // Video is wider — crop sides
         drawH = canvas.height
         drawW = drawH * videoAspect
         offsetX = (canvas.width - drawW) / 2
         offsetY = 0
       } else {
-        // Video is taller — crop top/bottom
         drawW = canvas.width
         drawH = drawW / videoAspect
         offsetX = 0
         offsetY = (canvas.height - drawH) / 2
       }
 
-      // Map normalized landmark coords to canvas pixel coords
       const toCanvas = (lm: Point3D) => ({
         x: offsetX + lm.x * drawW,
         y: offsetY + lm.y * drawH,
@@ -229,7 +268,7 @@ export function LiveCamera({ exerciseType, onSessionComplete, targetModifier, dy
 
         const { x, y } = toCanvas(lm)
         const isActive = isHandTracking ? true : activeSet.has(i)
-        const isCenterJoint = activeTriplet ? i === activeTriplet[1] : false // vertex joint (the angle joint)
+        const isCenterJoint = activeTriplet ? i === activeTriplet[1] : false
 
         ctx.beginPath()
         ctx.arc(x, y, isCenterJoint ? 7 : isActive ? 5 : 3, 0, 2 * Math.PI)
@@ -255,6 +294,24 @@ export function LiveCamera({ exerciseType, onSessionComplete, targetModifier, dy
     []
   )
 
+  // ── Check confidence for all 3 active landmarks ────────────────────────────
+  const checkConfidence = useCallback(
+    (landmarks: Point3D[], config: any): { ok: boolean; cue: string | null } => {
+      if (!config?.landmarks_used) return { ok: true, cue: null }
+      const [aIdx, bIdx, cIdx] = config.landmarks_used
+      const triplet = [aIdx, bIdx, cIdx]
+      for (const idx of triplet) {
+        const lm = landmarks[idx]
+        if (!lm || (lm.visibility ?? 1) < CONFIDENCE_THRESHOLD) {
+          const jointName = JOINT_NAMES[idx] || "tracked joint"
+          return { ok: false, cue: `Can't see your ${jointName} clearly — move into frame` }
+        }
+      }
+      return { ok: true, cue: null }
+    },
+    []
+  )
+
   // ── Render loop ────────────────────────────────────────────────────────────
   const renderLoop = useCallback(() => {
     const activeLandmarker = isHandTracking ? handLandmarkerRef.current : poseLandmarkerRef.current
@@ -266,17 +323,60 @@ export function LiveCamera({ exerciseType, onSessionComplete, targetModifier, dy
 
         if (results.landmarks && results.landmarks.length > 0) {
           const rawLandmarks = results.landmarks[0]
-          const mappedLandmarks: Point3D[] = rawLandmarks.map((lm: any) => ({
+          const mappedRaw: Point3D[] = rawLandmarks.map((lm: any) => ({
             x: lm.x,
             y: lm.y,
             z: lm.z,
             visibility: lm.visibility,
           }))
 
+          // Apply EMA smoothing before any angle math
+          const mappedLandmarks = isHandTracking ? mappedRaw : applyEMASmoothing(mappedRaw)
+
+          // ── Calibration phase ────────────────────────────────────────────
+          if (calibrationPhaseRef.current === "calibrating") {
+            const config = isHandTracking ? null : (engine as ExerciseEngine).config
+            const { ok, cue } = isHandTracking
+              ? { ok: true, cue: null }
+              : checkConfidence(mappedLandmarks, config)
+
+            if (!ok) {
+              // Key joints not visible during calibration — stay in calibrating, don't advance frame count
+              setCalibrationFailReason(cue)
+              drawSkeleton(mappedLandmarks, null, false, "poor")
+            } else {
+              setCalibrationFailReason(null)
+              calibrationFramesRef.current += 1
+              const progress = Math.min(100, Math.round((calibrationFramesRef.current / CALIBRATION_FRAMES) * 100))
+              setCalibrationProgress(progress)
+
+              drawSkeleton(mappedLandmarks, null, false, "good")
+
+              if (calibrationFramesRef.current >= CALIBRATION_FRAMES) {
+                calibrationPhaseRef.current = "ready"
+                setCalibrationPhase("ready")
+              }
+            }
+            requestRef.current = requestAnimationFrame(renderLoop)
+            return
+          }
+
+          // ── Confidence gate (post-calibration, every frame) ───────────────
+          if (!isHandTracking) {
+            const config = (engine as ExerciseEngine).config
+            const { ok, cue } = checkConfidence(mappedLandmarks, config)
+            if (!ok) {
+              setLowConfidenceCue(cue)
+              drawSkeleton(mappedLandmarks, config.landmarks_used, false, "poor")
+              requestRef.current = requestAnimationFrame(renderLoop)
+              return
+            }
+            setLowConfidenceCue(null)
+          }
+
           const newState = engine.processLandmarks(mappedLandmarks, startTimeMs)
           setState({ ...newState })
 
-          // Draw skeleton overlay
           drawSkeleton(
             mappedLandmarks,
             isHandTracking ? null : (engine as ExerciseEngine).config.landmarks_used as [number, number, number],
@@ -308,7 +408,7 @@ export function LiveCamera({ exerciseType, onSessionComplete, targetModifier, dy
       }
     }
     requestRef.current = requestAnimationFrame(renderLoop)
-  }, [engine, drawSkeleton, onSessionComplete])
+  }, [engine, drawSkeleton, onSessionComplete, applyEMASmoothing, checkConfidence])
 
   // ── Effects ────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -340,6 +440,12 @@ export function LiveCamera({ exerciseType, onSessionComplete, targetModifier, dy
     const newMode = facingModeRef.current === "user" ? "environment" : "user"
     facingModeRef.current = newMode
     setFacingMode(newMode)
+    // Reset smoothing and calibration when switching cameras
+    smoothedLandmarksRef.current.clear()
+    calibrationFramesRef.current = 0
+    calibrationPhaseRef.current = "calibrating"
+    setCalibrationPhase("calibrating")
+    setCalibrationProgress(0)
     await startCamera(newMode)
   }
 
@@ -380,15 +486,49 @@ export function LiveCamera({ exerciseType, onSessionComplete, targetModifier, dy
         style={{ transform: facingMode === "user" ? "scaleX(-1)" : "none" }}
       />
 
-      {/* Skeleton Canvas Overlay — same inset as video */}
+      {/* Skeleton Canvas Overlay */}
       <canvas
         ref={canvasRef}
         className="absolute inset-0 h-full w-full pointer-events-none"
         style={{ transform: facingMode === "user" ? "scaleX(-1)" : "none" }}
       />
 
+      {/* ── Calibration Overlay ── */}
+      {!isInitializing && calibrationPhase === "calibrating" && (
+        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-ink/80 backdrop-blur-sm px-8">
+          <div className="w-full max-w-xs space-y-5 text-center">
+            <div className="w-14 h-14 rounded-full bg-paper/10 flex items-center justify-center mx-auto">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-7 h-7 text-paper">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+              </svg>
+            </div>
+            <div>
+              <p className="font-sans text-xs uppercase tracking-widest text-paper/40 mb-1">Getting Ready</p>
+              <h2 className="font-serif text-2xl text-paper">Hold still</h2>
+              <p className="font-sans text-sm text-paper/60 mt-2 leading-relaxed">
+                {calibrationFailReason
+                  ? calibrationFailReason
+                  : "We're calibrating to your position. Stay in frame and hold still for a moment."}
+              </p>
+            </div>
+            {/* Progress bar */}
+            <div className="w-full h-1.5 bg-paper/10 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-recovery rounded-full transition-all duration-100"
+                style={{ width: `${calibrationProgress}%` }}
+              />
+            </div>
+            {calibrationFailReason && (
+              <p className="font-sans text-xs text-signal/80">
+                Step into frame so your joints are clearly visible
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* UI Overlay Layer */}
-      <div className="absolute inset-0 flex flex-col p-6 z-10">
+      <div className="absolute inset-0 flex flex-col p-4 md:p-6 z-10">
 
         {/* Top bar */}
         <div className="flex items-start justify-between">
@@ -409,7 +549,7 @@ export function LiveCamera({ exerciseType, onSessionComplete, targetModifier, dy
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             {/* Camera toggle button */}
             <button
               onClick={handleCameraToggle}
@@ -426,7 +566,8 @@ export function LiveCamera({ exerciseType, onSessionComplete, targetModifier, dy
 
             <Button
               variant="outline"
-              className="text-paper border-paper/30 hover:bg-paper/10"
+              size="sm"
+              className="text-paper border-paper/30 hover:bg-paper/10 text-xs h-9 px-3"
               onClick={handleEndSession}
             >
               {t("End Session")}
@@ -436,18 +577,27 @@ export function LiveCamera({ exerciseType, onSessionComplete, targetModifier, dy
 
         {/* Target Modifier Banner */}
         {targetModifier && (
-          <div className="mt-4 w-full flex justify-center">
-            <div className="rounded-md bg-signal/90 px-4 py-2 text-paper shadow-lg font-sans text-sm font-medium max-w-sm text-center">
+          <div className="mt-3 w-full flex justify-center">
+            <div className="rounded-md bg-signal/90 px-4 py-2 text-paper shadow-lg font-sans text-xs font-medium max-w-sm text-center">
               {targetModifier.message}
             </div>
           </div>
         )}
 
+        {/* Low confidence cue banner */}
+        {calibrationPhase === "ready" && lowConfidenceCue && (
+          <div className="mt-3 w-full flex justify-center">
+            <div className="rounded-full bg-signal/90 px-4 py-2 text-paper shadow-lg font-sans text-xs font-semibold">
+              👁 {lowConfidenceCue}
+            </div>
+          </div>
+        )}
+
         {/* Center — Arc Indicator + Phase */}
-        <div className="flex-1 flex flex-col items-center justify-center gap-6">
+        <div className="flex-1 flex flex-col items-center justify-center gap-5">
           {/* Phase indicator banner */}
-          {!isInitializing && (
-            <div className={`flex items-center gap-2 rounded-full px-5 py-2 font-sans text-sm font-semibold shadow-lg backdrop-blur-sm transition-all duration-300 ${
+          {!isInitializing && calibrationPhase === "ready" && (
+            <div className={`flex items-center gap-2 rounded-full px-4 py-2 font-sans text-sm font-semibold shadow-lg backdrop-blur-sm transition-all duration-300 ${
               state.phase === "concentric"
                 ? "bg-recovery/80 text-white"
                 : state.phase === "eccentric"
@@ -477,7 +627,7 @@ export function LiveCamera({ exerciseType, onSessionComplete, targetModifier, dy
               <div className="w-8 h-8 border-2 border-paper/30 border-t-paper rounded-full animate-spin" />
               <p className="font-sans text-paper/70 text-sm">{t("Initializing camera & AI...")}</p>
             </div>
-          ) : (
+          ) : calibrationPhase === "ready" ? (
             <div className="relative">
               <div
                 className={`rounded-full bg-paper p-4 shadow-2xl transition-all duration-200 ${
@@ -507,13 +657,13 @@ export function LiveCamera({ exerciseType, onSessionComplete, targetModifier, dy
                 </div>
               )}
             </div>
-          )}
+          ) : null}
         </div>
 
         {/* Bottom — Form Warning */}
-        <div className="h-16 flex items-end justify-center">
-          {state.formWarning && (
-            <div className="rounded-md bg-signal/90 px-4 py-2 text-paper shadow-lg font-sans text-sm font-medium">
+        <div className="h-14 flex items-end justify-center">
+          {calibrationPhase === "ready" && state.formWarning && (
+            <div className="rounded-full bg-signal/90 px-4 py-2 text-paper shadow-lg font-sans text-xs font-medium">
               {t(state.formWarning)}
             </div>
           )}

@@ -7,7 +7,7 @@ import { useTranslation } from "@/components/DictionaryProvider"
 
 export const BottomTabBar = () => {
   const pathname = usePathname()
-  const { t, largeText } = useTranslation()
+  const { t } = useTranslation()
 
   const navItems = [
     { name: "Dashboard", href: "/dashboard", icon: HomeIcon },
@@ -18,26 +18,24 @@ export const BottomTabBar = () => {
   ]
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-line pb-safe z-50">
-      <div className="flex items-center justify-around h-16 px-2">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-line z-50" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
+      <div className="flex items-center justify-around h-16 px-1">
         {navItems.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`)
           return (
             <Link 
               key={item.name} 
               href={item.href}
-              className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${
+              className={`flex flex-col items-center justify-center flex-1 h-full gap-1 min-h-[44px] transition-colors ${
                 isActive 
                   ? "text-recovery" 
                   : "text-ink/40 hover:text-ink/70"
               }`}
             >
               <item.icon className="w-5 h-5" />
-              {largeText && (
-                <span className={`text-[10px] ${isActive ? "font-serif font-medium" : "font-sans"}`}>
-                  {t(item.name)}
-                </span>
-              )}
+              <span className={`text-[10px] leading-none ${isActive ? "font-medium" : "font-sans"}`}>
+                {t(item.name)}
+              </span>
             </Link>
           )
         })}

@@ -60,6 +60,12 @@ export class ExerciseEngine {
   private monotonicFails: number = 0
   private oppositeShoulderInitialY: number | null = null
 
+  // Multi-frame rep validation: angle must stay above rep_top_angle for this many
+  // consecutive frames before the peak is confirmed — prevents a single noisy spike
+  // from falsely triggering rep completion.
+  private peakFrameCount: number = 0
+  private readonly PEAK_FRAMES_REQUIRED = 4
+
   // Live cue debouncing — only update text when it actually changes
   private lastCueText: string | null = null
   private lastCueChangeMs: number = 0
@@ -312,18 +318,25 @@ export class ExerciseEngine {
         this.state.maxAngleThisRep = angle
       }
 
-      // Flash joint color when first crossing the rep_top_angle threshold
-      if (
-        angle >= config.rep_top_angle &&
-        this.lastAngle < config.rep_top_angle
-      ) {
-        this.state.repPeakFlash = true
+      // Multi-frame peak validation: angle must stay above rep_top_angle for
+      // PEAK_FRAMES_REQUIRED consecutive frames before we confirm the peak.
+      // This prevents a single noisy frame spike from falsely triggering the top.
+      if (angle >= config.rep_top_angle) {
+        this.peakFrameCount += 1
+        if (this.peakFrameCount === this.PEAK_FRAMES_REQUIRED) {
+          // Confirmed peak — flash the joint
+          this.state.repPeakFlash = true
+        }
+      } else {
+        // Dropped below threshold — reset the counter
+        this.peakFrameCount = 0
       }
 
       // Switch to eccentric if we drop by 15 deg from max
       if (this.state.maxAngleThisRep - angle > 15) {
         this.state.phase = "eccentric"
         this.monotonicFails = 0
+        this.peakFrameCount = 0
         this.setLiveCue("Lower slowly", timestampMs)
       }
     } else if (this.state.phase === "eccentric") {
@@ -381,6 +394,7 @@ export class ExerciseEngine {
         this.state.phase = "setup"
         this.state.maxAngleThisRep = 0
         this.repStartTimeMs = 0
+        this.peakFrameCount = 0
         this.oppositeShoulderInitialY = null
       } else if (angle > this.state.maxAngleThisRep) {
         // Wait, they started going back up without finishing the rep

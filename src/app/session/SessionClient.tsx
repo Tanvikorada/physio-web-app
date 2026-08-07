@@ -20,6 +20,7 @@ type SessionState =
   | "screening"
   | "blocked"
   | "pre-pain"
+  | "briefing"
   | "tutorial"
   | "active"
   | "guided"
@@ -96,6 +97,21 @@ function SessionPageContent({
   const [feedbackError, setFeedbackError] = useState(false)
   const [isGeneratingFeedback, setIsGeneratingFeedback] = useState(false)
 
+  // Pre-session briefing (fetched once per exercise, cached server-side)
+  const [briefing, setBriefing] = useState<string | null>(null)
+  const [briefingLoading, setBriefingLoading] = useState(false)
+
+  // Fetch briefing on mount if we have an exercise
+  React.useEffect(() => {
+    if (!initialExerciseData?.id) return
+    setBriefingLoading(true)
+    fetch(`/api/exercise-briefing?exerciseId=${initialExerciseData.id}`)
+      .then(r => r.json())
+      .then(data => { if (data.briefing) setBriefing(data.briefing) })
+      .catch(() => {})
+      .finally(() => setBriefingLoading(false))
+  }, [initialExerciseData?.id])
+
   // ── Step handlers ──────────────────────────────────────────────────────────
 
   const handleStartSetup = () => {
@@ -162,12 +178,21 @@ function SessionPageContent({
 
     // Mode D: skip tutorial & camera — go straight to guided timer
     if (initialExerciseData?.trackingMode === "D") {
+      // Show briefing first if available, then go guided
+      if (briefing) {
+        setSessionState("briefing")
+        return
+      }
       setSessionState("guided")
       return
     }
 
-    // All other modes: show tutorial before camera opens
-    setSessionState("tutorial")
+    // All other modes: show briefing then tutorial before camera opens
+    if (briefing) {
+      setSessionState("briefing")
+    } else {
+      setSessionState("tutorial")
+    }
   }
 
   const handleActiveSessionComplete = (state: { reps: number; rejectedReps: number; maxAngle: number; formWarning: string | null; formFlags: string[]; holdTimeMs?: number; targetHoldMs?: number }) => {
@@ -378,7 +403,77 @@ function SessionPageContent({
     )
   }
 
+  // BRIEFING — plain-language exercise explanation before camera opens
+  if (sessionState === "briefing") {
+    const isGuided = initialExerciseData?.trackingMode === "D"
+    return (
+      <div className="mx-auto flex max-w-md flex-col items-center justify-center min-h-screen p-6">
+        <div className="w-full space-y-6">
+          {/* Step indicator */}
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <div className="flex items-center gap-1.5">
+              <div className="h-2 w-2 rounded-full bg-recovery" />
+              <div className="h-0.5 w-8 bg-recovery" />
+              <div className="h-2 w-2 rounded-full bg-recovery" />
+              <div className="h-0.5 w-8 bg-recovery" />
+              <div className="h-2 w-2 rounded-full bg-recovery ring-2 ring-recovery/30" />
+              <div className="h-0.5 w-8 bg-line" />
+              <div className="h-2 w-2 rounded-full bg-line" />
+            </div>
+            <span className="ml-2 font-sans text-xs text-ink/40 uppercase tracking-wide">Before you start</span>
+          </div>
+
+          {/* Header */}
+          <div className="text-center space-y-1">
+            <p className="font-sans text-xs uppercase tracking-widest text-ink/40">Exercise Briefing</p>
+            <h1 className="font-serif text-2xl text-ink">{initialExerciseData?.name}</h1>
+          </div>
+
+          {/* Briefing card */}
+          <div className="rounded-2xl border border-recovery/30 bg-recovery/5 p-6 space-y-3">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-6 h-6 rounded-full bg-recovery/20 flex items-center justify-center flex-shrink-0">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3.5 h-3.5 text-recovery">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <span className="font-sans text-xs font-semibold text-recovery uppercase tracking-wide">AI Summary</span>
+            </div>
+            <p className="font-sans text-base text-ink leading-relaxed">
+              {briefingLoading ? (
+                <span className="text-ink/40 italic">Loading briefing…</span>
+              ) : briefing || "Get ready to begin your session."}
+            </p>
+          </div>
+
+          {isGuided && (
+            <div className="rounded-xl border border-line bg-white p-4 flex items-start gap-3">
+              <span className="text-lg">📋</span>
+              <p className="font-sans text-sm text-ink/70 leading-relaxed">
+                This is a <span className="font-medium text-ink">guided session</span> — you&apos;ll follow the instructions on screen. AI pose tracking is not active for this exercise.
+              </p>
+            </div>
+          )}
+
+          <button
+            onClick={() => {
+              if (isGuided) {
+                setSessionState("guided")
+              } else {
+                setSessionState("tutorial")
+              }
+            }}
+            className="w-full h-14 rounded-2xl bg-recovery text-white font-sans font-medium hover:opacity-90 transition-opacity text-base shadow-md shadow-recovery/20"
+          >
+            {isGuided ? "Start Session →" : "Continue to Setup →"}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   // TUTORIAL — exercise guide before camera opens
+
   if (sessionState === "tutorial") {
     return (
       <div className="mx-auto flex max-w-md flex-col items-center justify-start min-h-screen p-6 py-10">

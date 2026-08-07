@@ -42,45 +42,45 @@ export default async function DashboardHome() {
   const { t } = getDictionary(locale)
 
   return (
-    <div className="px-6 py-12 md:px-12 max-w-4xl mx-auto space-y-12">
+    <div className="px-4 py-6 md:px-12 md:py-12 max-w-4xl mx-auto space-y-8 md:space-y-12">
       <header>
-        <h1 className="font-serif text-3xl text-ink font-medium tracking-tight">{t("Welcome back")}, {user.name}</h1>
-        <p className="font-sans text-ink/70 mt-2">{t("Here is your daily recovery plan.")}</p>
+        <h1 className="font-serif text-2xl md:text-3xl text-ink font-medium tracking-tight">{t("Welcome back")}, {user.name}</h1>
+        <p className="font-sans text-ink/70 mt-1 text-sm md:text-base">{t("Here is your daily recovery plan.")}</p>
       </header>
 
-      <section className="space-y-6">
-        <h2 className="font-serif text-2xl text-ink">{t("Today's Plan")}</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <section className="space-y-4">
+        <h2 className="font-serif text-xl md:text-2xl text-ink">{t("Today's Plan")}</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {plannedExercises.length === 0 ? (
-            <div className="col-span-1 md:col-span-2 p-8 rounded-2xl bg-white border border-line shadow-sm flex flex-col items-center justify-center text-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-recovery/10 flex items-center justify-center text-recovery mb-2">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+            <div className="col-span-1 md:col-span-2 p-6 rounded-2xl bg-white border border-line shadow-sm flex flex-col items-center justify-center text-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-recovery/10 flex items-center justify-center text-recovery mb-1">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
                   <path d="M12 5v14M5 12h14"/>
                 </svg>
               </div>
-              <h3 className="font-serif text-xl text-ink">{t("No exercises planned for today")}</h3>
+              <h3 className="font-serif text-lg text-ink">{t("No exercises planned for today")}</h3>
               <p className="font-sans text-sm text-ink/70 max-w-sm">
                 {t("Your daily plan is built from your saved routines. Head over to the library to find and save exercises prescribed by your physiotherapist.")}
               </p>
               <Link 
                 href="/library"
-                className="mt-2 px-6 py-2.5 bg-signal text-white rounded-full font-sans font-medium hover:opacity-90 transition-opacity"
+                className="mt-1 px-5 py-2.5 bg-signal text-white rounded-full font-sans font-medium hover:opacity-90 transition-opacity text-sm"
               >
                 {t("Browse Library")}
               </Link>
             </div>
           ) : (
             plannedExercises.map((exercise) => (
-              <div key={exercise.id} className="p-5 rounded-2xl bg-white border border-line shadow-sm flex flex-col gap-4">
+              <div key={exercise.id} className="p-4 rounded-2xl bg-white border border-line shadow-sm flex flex-col gap-3">
                 <div>
-                  <h3 className="font-serif text-xl text-ink">{t(exercise.name)}</h3>
-                  <p className="font-sans text-sm text-ink/60 mt-1">
+                  <h3 className="font-serif text-lg text-ink">{t(exercise.name)}</h3>
+                  <p className="font-sans text-sm text-ink/60 mt-0.5">
                     {exercise.targetHoldSeconds ? `${exercise.targetHoldSeconds}s ${t("hold")}` : (exercise.targetROM ? `${t("Target:")} ${exercise.targetROM}° ${t("ROM")}` : `${t("Mode")} ${exercise.trackingMode}`)}
                   </p>
                 </div>
                 <Link 
                   href={`/session?exerciseId=${exercise.id}`}
-                  className="mt-auto w-full text-center bg-recovery text-white py-3 rounded-xl font-sans font-medium hover:opacity-90 transition-opacity"
+                  className="mt-auto w-full text-center bg-recovery text-white py-2.5 rounded-xl font-sans font-medium hover:opacity-90 transition-opacity text-sm min-h-[44px] flex items-center justify-center"
                 >
                   {t("Start Session")}
                 </Link>
