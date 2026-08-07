@@ -186,10 +186,21 @@ export class ExerciseEngine {
       )
     }
 
+    const isKneeFlexion = 
+      this.type.toLowerCase() === "kneeflexion" || 
+      this.type.toLowerCase() === "knee_flexion" ||
+      this.config?.exercise_id === "knee_flexion"
+
+    const isShoulderAbduction = 
+      this.type.toLowerCase() === "shoulderabduction" || 
+      this.type.toLowerCase() === "shoulder_abduction" ||
+      this.config?.exercise_id === "shoulder_abduction"
+
     let computedAngle = 0
-    if (this.type === "KneeFlexion") {
+    if (isKneeFlexion) {
       computedAngle = Math.abs(180 - rawAngle)
-    } else if (this.type === "ShoulderAbduction") {
+    } else {
+      // Default to rawAngle for ShoulderAbduction and other exercises
       computedAngle = rawAngle
     }
 
@@ -197,7 +208,7 @@ export class ExerciseEngine {
     if (Math.random() < 0.033) {
       console.log(
         `[DIAG CP4 RAW ANGLE] rawAngle=${rawAngle.toFixed(2)}° computedAngle=${computedAngle.toFixed(2)}°`,
-        `(${this.type} uses ${this.type === "KneeFlexion" ? "180-raw" : "raw"})`,
+        `(${isKneeFlexion ? "knee_flexion uses 180-raw" : "shoulder_abduction / raw uses raw"})`,
       )
     }
 
@@ -225,7 +236,7 @@ export class ExerciseEngine {
 
     // Setup-phase cue: prompt user to get into starting position
     if (this.state.phase === "setup") {
-      const exerciseLabel = this.type === "KneeFlexion" ? "leg straight" : "arm at side"
+      const exerciseLabel = isKneeFlexion ? "leg straight" : "arm at side"
       this.setLiveCue(`Start: ${exerciseLabel}`, timestampMs)
     }
 

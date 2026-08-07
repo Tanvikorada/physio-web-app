@@ -69,8 +69,17 @@ const EXERCISE_DATA: Record<string, any> = {
 export function ExerciseTutorial({ exerciseType, onReady, initialExerciseData }: ExerciseTutorialProps) {
   const [step, setStep] = useState<"overview" | "howto" | "camera">("overview")
   
-  // If we have dynamic data but it's not in our hardcoded list, we generate a fallback tutorial
-  const data = EXERCISE_DATA[exerciseType] || {
+  // Normalize key for EXERCISE_DATA lookup
+  const normalizedKey = 
+    exerciseType.toLowerCase() === "kneeflexion" || exerciseType.toLowerCase() === "knee_flexion"
+      ? "KneeFlexion"
+      : exerciseType.toLowerCase() === "shoulderabduction" || exerciseType.toLowerCase() === "shoulder_abduction"
+      ? "ShoulderAbduction"
+      : exerciseType
+
+  const isKneeFlexion = normalizedKey === "KneeFlexion"
+
+  const data = EXERCISE_DATA[normalizedKey] || {
     name: initialExerciseData?.name || exerciseType,
     clinicalTarget: initialExerciseData?.landmarkConfig?.rep_top_angle ? `${initialExerciseData.landmarkConfig.rep_top_angle}°` : "N/A",
     repTarget: initialExerciseData?.landmarkConfig?.rep_top_angle ? `${initialExerciseData.landmarkConfig.rep_top_angle}° minimum` : "N/A",
@@ -119,7 +128,7 @@ export function ExerciseTutorial({ exerciseType, onReady, initialExerciseData }:
               <p className="font-sans font-semibold text-recovery text-sm uppercase tracking-wide">Camera Position</p>
               <p className="font-serif text-xl text-ink mt-1">{data.cameraPosition}</p>
               <p className="font-sans text-sm text-ink/60 mt-1">
-                {exerciseType === "KneeFlexion"
+                {isKneeFlexion
                   ? "Your knee joint must be visible in profile for accurate angle measurement."
                   : "Your full upper body facing the camera gives the best landmark detection."}
               </p>
@@ -207,7 +216,7 @@ export function ExerciseTutorial({ exerciseType, onReady, initialExerciseData }:
         <div>
           <p className="font-serif text-xl text-ink">{data.cameraPosition}</p>
           <p className="font-sans text-sm text-ink/60 mt-2 max-w-xs mx-auto">
-            {exerciseType === "KneeFlexion"
+            {isKneeFlexion
               ? "Your hip, knee, and ankle should all be visible from the side. If they are not, the angle can't be measured."
               : "Both shoulders and your arms should be fully visible. Back up a step if needed."}
           </p>
@@ -218,7 +227,7 @@ export function ExerciseTutorial({ exerciseType, onReady, initialExerciseData }:
       <div className="rounded-xl border border-line bg-white p-4 space-y-3">
         <p className="font-sans text-xs text-ink/40 uppercase tracking-wide">Before you start</p>
         {[
-          exerciseType === "KneeFlexion" ? "I'm standing sideways to the camera" : "I'm facing the camera",
+          isKneeFlexion ? "I'm standing sideways to the camera" : "I'm facing the camera",
           "My full body is visible and not cropped",
           "I have enough space to move freely",
           "I'll start with my arm/leg in the resting position",

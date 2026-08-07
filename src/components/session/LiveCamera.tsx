@@ -505,9 +505,10 @@ export function LiveCamera({ exerciseType, onSessionComplete, targetModifier, dy
     )
   }
 
+  const isKneeFlexion = exerciseType.toLowerCase() === "kneeflexion" || exerciseType.toLowerCase() === "knee_flexion"
   const baseTargetAngle = isHandTracking 
     ? (engine as HandExerciseEngine).config.rep_top_angle 
-    : (exerciseType === "KneeFlexion" ? 135 : 180)
+    : (isKneeFlexion ? 135 : 180)
   const targetAngle = isHandTracking ? baseTargetAngle : baseTargetAngle * (targetModifier?.romModifier || 1.0)
   const isSignal = state.formSignal === "poor"
 
@@ -570,7 +571,7 @@ export function LiveCamera({ exerciseType, onSessionComplete, targetModifier, dy
         <div className="flex items-start justify-between">
           <div className="flex flex-col">
             <span className="font-sans text-xs text-paper/60 uppercase tracking-wide">
-              {isHandTracking ? t(exerciseType) : t(exerciseType === "KneeFlexion" ? "Knee Flexion" : "Shoulder Abduction")}
+              {isHandTracking ? t(exerciseType) : t(isKneeFlexion ? "Knee Flexion" : "Shoulder Abduction")}
             </span>
             <div className="flex items-baseline gap-2">
               <span className="font-serif text-3xl text-paper">
@@ -641,7 +642,7 @@ export function LiveCamera({ exerciseType, onSessionComplete, targetModifier, dy
                 : "bg-paper/10 text-paper/60 border border-paper/20"
             }`}>
               {state.phase === "setup" && (
-                <><span>●</span><span>{t("Ready")} — {isHandTracking ? t("hand in view") : (exerciseType === "KneeFlexion" ? t("leg straight") : t("arm at side"))}</span></>
+                <><span>●</span><span>{t("Ready")} — {isHandTracking ? t("hand in view") : (isKneeFlexion ? t("leg straight") : t("arm at side"))}</span></>
               )}
               {state.phase === "concentric" && (
                 <><span>↑</span><span>{t("Lifting")}</span>
