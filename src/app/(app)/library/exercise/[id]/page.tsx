@@ -57,12 +57,12 @@ export default async function ExerciseDetailPage({
 
   // 3D Demo configuration mapping for flagship exercises
   const demoConfig: Record<string, { joint: string, axis: 'x' | 'y' | 'z', defaultStart: number, defaultTarget: number }> = {
-    "Shoulder Abduction": { joint: "mixamorigRightArm", axis: "z", defaultStart: 25, defaultTarget: 90 },
-    "Shoulder Flexion": { joint: "mixamorigRightArm", axis: "x", defaultStart: 20, defaultTarget: 140 },
-    "Heel Slides": { joint: "mixamorigRightLeg", axis: "x", defaultStart: 160, defaultTarget: 90 },
-    "Neck Rotation": { joint: "mixamorigNeck", axis: "y", defaultStart: 15, defaultTarget: 60 },
-    "Hip Abduction": { joint: "mixamorigRightUpLeg", axis: "z", defaultStart: 175, defaultTarget: 145 },
-    "Ankle Pumps": { joint: "mixamorigRightFoot", axis: "x", defaultStart: 120, defaultTarget: 90 },
+    "Shoulder Abduction": { joint: "RightArm", axis: "z", defaultStart: 25, defaultTarget: 90 },
+    "Shoulder Flexion": { joint: "RightArm", axis: "x", defaultStart: 20, defaultTarget: 140 },
+    "Heel Slides": { joint: "RightLeg", axis: "x", defaultStart: 160, defaultTarget: 90 },
+    "Neck Rotation": { joint: "Neck", axis: "y", defaultStart: 15, defaultTarget: 60 },
+    "Hip Abduction": { joint: "RightUpLeg", axis: "z", defaultStart: 175, defaultTarget: 145 },
+    "Ankle Pumps": { joint: "RightFoot", axis: "x", defaultStart: 120, defaultTarget: 90 },
   }
 
   const demoParams = demoConfig[exercise.name]
