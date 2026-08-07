@@ -7,6 +7,7 @@ import { redirect } from "next/navigation"
 
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
+import { generateTrendSummary } from "@/lib/ai"
 
 export const dynamic = "force-dynamic"
 
@@ -85,31 +86,10 @@ export default async function DashboardPage() {
     },
   })
 
-  const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000"
-
   const summaries = await Promise.all(
     exercises.map(async (ex) => {
       if (ex.sessions.length === 0) return { success: false, message: "Complete a session to start tracking." }
-      try {
-        const res = await fetch(`${baseUrl}/api/trend-summary`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            exerciseName: ex.name,
-            targetROM: ex.targetROM,
-            sessions: ex.sessions,
-          }),
-          cache: "no-store",
-        })
-        const data = await res.json()
-        if (res.ok && data.summary) {
-          return { success: true, message: data.summary }
-        } else {
-          return { success: false, message: data.message || "AI trend analysis couldn't be generated.", error: true }
-        }
-      } catch (e) {
-        return { success: false, message: "AI trend analysis couldn't be generated (Network Error).", error: true }
-      }
+      return await generateTrendSummary(ex.name, ex.targetROM || 180, ex.sessions)
     })
   )
 

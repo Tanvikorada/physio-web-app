@@ -2,8 +2,6 @@
 
 import * as React from "react"
 import { useRef, useState } from "react"
-import html2canvas from "html2canvas"
-import jsPDF from "jspdf"
 import { TrendChart } from "@/components/dashboard/TrendChart"
 import { PainChart } from "@/components/dashboard/PainChart"
 import { ArcIndicator } from "@/components/ui/ArcIndicator"
@@ -25,6 +23,9 @@ export function ReportClient({ user, dateRange, summary, exercises }: ReportClie
     setIsExporting(true)
     
     try {
+      const html2canvas = (await import("html2canvas")).default
+      const { jsPDF } = await import("jspdf")
+
       const canvas = await html2canvas(reportRef.current, {
         scale: 2, // High resolution
         useCORS: true,

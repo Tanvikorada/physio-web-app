@@ -1,5 +1,6 @@
 import { InstallButton } from "@/components/InstallButton"
 import Link from "next/link"
+import { Camera, TrendingUp, ShieldCheck } from "lucide-react"
 
 export default function Home() {
   return (
@@ -38,17 +39,17 @@ export default function Home() {
         {/* Feature Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-12 mt-12 border-t border-line/50 text-left">
           <div className="p-6 rounded-2xl bg-white shadow-sm border border-line/50 hover:shadow-md transition-shadow">
-            <div className="text-2xl mb-3">📷</div>
+            <div className="text-2xl mb-3 text-recovery"><Camera size={28} strokeWidth={1.5} /></div>
             <h3 className="font-serif text-lg font-medium text-ink mb-2">Live Tracking</h3>
             <p className="text-sm text-ink/70">Uses your device camera to measure Range of Motion instantly.</p>
           </div>
           <div className="p-6 rounded-2xl bg-white shadow-sm border border-line/50 hover:shadow-md transition-shadow">
-            <div className="text-2xl mb-3">📈</div>
+            <div className="text-2xl mb-3 text-recovery"><TrendingUp size={28} strokeWidth={1.5} /></div>
             <h3 className="font-serif text-lg font-medium text-ink mb-2">Smart Trends</h3>
             <p className="text-sm text-ink/70">AI analyzes your pain and progress to adjust your recovery path.</p>
           </div>
           <div className="p-6 rounded-2xl bg-white shadow-sm border border-line/50 hover:shadow-md transition-shadow">
-            <div className="text-2xl mb-3">🔒</div>
+            <div className="text-2xl mb-3 text-recovery"><ShieldCheck size={28} strokeWidth={1.5} /></div>
             <h3 className="font-serif text-lg font-medium text-ink mb-2">Private by Design</h3>
             <p className="text-sm text-ink/70">No videos are ever recorded or sent to the cloud. Processed locally.</p>
           </div>

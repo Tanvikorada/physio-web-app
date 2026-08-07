@@ -29,3 +29,19 @@ export async function updateSettings(formData: FormData) {
 
   revalidatePath("/", "layout")
 }
+
+export async function clearSessionData() {
+  const session = await getServerSession(authOptions)
+  const userId = session?.user?.id
+
+  if (userId) {
+    // Delete all sessions for the user
+    await prisma.session.deleteMany({
+      where: { userId }
+    })
+    // Optionally delete pain records if they exist, but the prompt only asked for exercise data
+    // await prisma.painRecord.deleteMany({ where: { userId } })
+  }
+
+  revalidatePath("/", "layout")
+}

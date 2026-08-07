@@ -1,6 +1,6 @@
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
-import { updateSettings } from "@/app/actions/settings"
+import { updateSettings, clearSessionData } from "@/app/actions/settings"
 import { getDictionary } from "@/lib/i18n"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -65,6 +65,14 @@ export default async function SettingsPage() {
           className="w-full sm:w-auto px-8 py-3 bg-signal text-white rounded-xl font-sans font-medium hover:opacity-90 transition-opacity"
         >
           {t("Save Preferences")}
+        </button>
+      </form>
+
+      <form action={clearSessionData} className="pt-8 border-t border-line mt-8">
+        <h2 className="font-serif text-xl text-ink mb-4">{t("Data")}</h2>
+        <p className="font-sans text-sm text-ink/70 mb-4">{t("Clear all your past exercise session data. This cannot be undone.")}</p>
+        <button type="submit" className="px-4 py-2 bg-signal/10 text-signal rounded-xl font-sans font-medium hover:bg-signal/20 transition-colors">
+           {t("Clear Session Data")}
         </button>
       </form>
 
