@@ -14,6 +14,8 @@ export interface ExerciseState {
   formFlags: string[]
   /** 2-4 word in-rep coaching cue — only changes when content changes, no per-frame flicker */
   liveCue: string | null
+  /** Flowing, conversational sentences for the AI coach tab */
+  aiCoachMessage: string
   /** Whether the active joint triplet just crossed the rep top threshold (used to flash skeleton color) */
   repPeakFlash: boolean
   // Mode B properties
@@ -122,6 +124,7 @@ export class ExerciseEngine {
       formSignal: "good",
       formFlags: [],
       liveCue: null,
+      aiCoachMessage: "Let's get started. Get into position and we will begin.",
       repPeakFlash: false,
       holdTimeMs: 0,
       isHolding: false,
@@ -134,6 +137,12 @@ export class ExerciseEngine {
       this.lastCueText = cue
       this.lastCueChangeMs = nowMs
       this.state.liveCue = cue
+    }
+  }
+
+  private setCoachMessage(msg: string) {
+    if (this.state.aiCoachMessage !== msg) {
+      this.state.aiCoachMessage = msg
     }
   }
 
@@ -179,10 +188,12 @@ export class ExerciseEngine {
       (a.visibility && a.visibility < 0.5) ||
       (b.visibility && b.visibility < 0.5)
     ) {
-      this.state.formWarning = "Tracking lost — make sure your full body is in frame."
+      const jointName = this.config.primary_joint || "body"
+      this.state.formWarning = `Tracking lost — make sure your ${jointName} area is clearly visible.`
       this.state.formSignal = "poor"
       this.repLostTracking = true
       this.setLiveCue("Get in frame", timestampMs)
+      this.setCoachMessage(`I can't see your ${jointName} clearly. Please adjust your camera or step into frame so I can guide you.`)
       return this.state
     }
 
@@ -250,6 +261,14 @@ export class ExerciseEngine {
         exerciseLabel = "look forward"
       }
       this.setLiveCue(`Start: ${exerciseLabel}`, timestampMs)
+      
+      if (!this.repLostTracking) {
+        if (this.trackingMode === "B") {
+          this.setCoachMessage(`Alright, let's do this. Slowly bend your ${this.config.primary_joint || "joint"} to the target position.`)
+        } else {
+          this.setCoachMessage(`I'm ready when you are. Start moving your ${this.config.primary_joint || "joint"} whenever you are ready.`)
+        }
+      }
     }
 
     this.updateState(timestampMs)
@@ -296,6 +315,7 @@ export class ExerciseEngine {
       if (angle >= targetThreshold) {
         if (!this.state.isHolding) {
           this.state.isHolding = true
+          this.setCoachMessage(`Yes, perfect! Now hold it right there for ${this.targetHoldSeconds || 10} seconds.`)
         }
         
         // Accumulate time if we have a valid previous frame
@@ -315,6 +335,7 @@ export class ExerciseEngine {
           if (!this.state.formFlags.includes("Lost hold position")) {
             this.state.formFlags.push("Lost hold position")
           }
+          this.setCoachMessage("You dropped out of the stretch! Let's get back into position.")
         }
         this.state.formSignal = "poor"
         this.setLiveCue("Hold the position!", timestampMs)
@@ -333,6 +354,7 @@ export class ExerciseEngine {
         this.state.formSignal = "good"
         this.state.formWarning = null
         this.setLiveCue("Keep lifting!", timestampMs)
+        this.setCoachMessage("Looking good. Keep going until you reach the target range.")
       }
     } else if (this.state.phase === "concentric") {
       // Check jerkiness (angle dropping significantly during concentric phase)
@@ -341,6 +363,7 @@ export class ExerciseEngine {
         if (this.monotonicFails > 3) {
           this.state.formSignal = "poor"
           this.setLiveCue("Slow down", timestampMs)
+          this.setCoachMessage("Try not to jerk your movement. Keep it smooth and controlled.")
           if (!this.state.formFlags.includes("Jerky movement")) {
             this.state.formFlags.push("Jerky movement")
           }
@@ -350,8 +373,10 @@ export class ExerciseEngine {
         const progress = angle / config.rep_top_angle
         if (angle >= config.rep_top_angle) {
           this.setLiveCue("Hold it!", timestampMs)
+          this.setCoachMessage("Perfect! Now slowly return to the starting position.")
         } else if (progress >= 0.8) {
           this.setLiveCue("Almost there!", timestampMs)
+          this.setCoachMessage("Almost there, just a little bit more...")
         } else {
           this.setLiveCue("Keep lifting!", timestampMs)
         }
@@ -381,6 +406,7 @@ export class ExerciseEngine {
         this.monotonicFails = 0
         this.peakFrameCount = 0
         this.setLiveCue("Lower slowly", timestampMs)
+        this.setCoachMessage("Nice work. Slowly go back to the previous position.")
       }
     } else if (this.state.phase === "eccentric") {
       // Check jerkiness (angle increasing significantly during eccentric phase)
@@ -423,11 +449,13 @@ export class ExerciseEngine {
             this.state.sessionMaxValidAngle = this.state.maxAngleThisRep
           }
           this.setLiveCue("Good rep!", timestampMs)
+          this.setCoachMessage(`Great job! That's ${this.state.reps} completed. Keep it up!`)
         } else {
           this.state.rejectedReps += 1
           this.state.formWarning = `Rep not counted: ${rejectReason}`
           this.state.formSignal = "poor"
           this.setLiveCue(rejectReason === "Range too small" ? "Full range" : "Try again", timestampMs)
+          this.setCoachMessage(`We couldn't count that rep because: ${rejectReason}. Let's try again.`)
           if (!this.state.formFlags.includes(`Incomplete/Rejected: ${rejectReason}`)) {
             this.state.formFlags.push(`Incomplete/Rejected: ${rejectReason}`)
           }

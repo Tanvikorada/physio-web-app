@@ -44,7 +44,7 @@ const HAND_CONNECTIONS: [number, number][] = [
 // Accuracy constants
 // ─────────────────────────────────────────────────────────────────────────────
 const EMA_ALPHA = 0.35           // Landmark smoothing factor (lower = smoother but more lag)
-const CONFIDENCE_THRESHOLD = 0.6 // Minimum per-landmark visibility to accept a frame
+const CONFIDENCE_THRESHOLD = 0.4 // Minimum per-landmark visibility to accept a frame
 const CALIBRATION_FRAMES = 60    // Number of frames to hold still during calibration (~2s at 30fps)
 const DIAG_LOG_EVERY = 30        // Only log every N frames to reduce console spam
 
@@ -179,6 +179,9 @@ export function LiveCamera({ exerciseType, exerciseName, onSessionComplete, targ
           },
           runningMode: "VIDEO",
           numPoses: 1,
+          minPoseDetectionConfidence: 0.4,
+          minPosePresenceConfidence: 0.4,
+          minTrackingConfidence: 0.4,
         })
         poseLandmarkerRef.current = landmarker
       }
@@ -603,6 +606,21 @@ export function LiveCamera({ exerciseType, exerciseName, onSessionComplete, targ
       {/* ── PANEL 2: DASHBOARD INFO (Bottom on mobile, Right on desktop) ── */}
       <div className="relative w-full flex-1 md:w-1/2 flex flex-col p-5 md:p-8 overflow-y-auto bg-ink z-10 shadow-[0_-10px_20px_rgba(0,0,0,0.1)] md:shadow-none">
         
+        {/* AI Coach Narrator */}
+        <div className="mb-6 rounded-2xl bg-paper/5 border border-paper/10 p-5 shadow-sm flex items-start gap-4">
+          <div className="shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-recovery/20 text-recovery border border-recovery/30">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 01-.923 1.785A5.969 5.969 0 006 21c1.282 0 2.47-.402 3.445-1.087.81.22 1.668.337 2.555.337z" />
+            </svg>
+          </div>
+          <div>
+            <h3 className="text-paper/50 font-sans text-xs uppercase tracking-widest font-semibold mb-1">AI Coach</h3>
+            <p className="text-paper font-sans text-sm md:text-base leading-relaxed">
+              {state.aiCoachMessage || t("Initializing AI Coach...")}
+            </p>
+          </div>
+        </div>
+
         {/* Top bar */}
         <div className="flex items-start justify-between shrink-0">
           <div className="flex flex-col">
