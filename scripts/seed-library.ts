@@ -8,7 +8,39 @@ interface ExerciseSeedData {
   instructionsFull: string
   targetHoldSeconds?: number
   landmarkConfig?: any
+  isActive?: boolean
 }
+
+const ACTIVE_EXERCISES = new Set([
+  // Neck
+  "Neck Rotation", "Neck Side Bending", "Neck Flexion", "Isometric Neck Flexion", "Levator Scapulae Stretch",
+  // Shoulder (MUST include Shoulder Abduction)
+  "Pendulum Exercise", "Shoulder Flexion", "Shoulder Abduction", "Internal Rotation", "Cross-Body Stretch",
+  // Back
+  "Pelvic Tilt", "Cat-Camel Stretch", "Bird Dog", "Child's Pose Stretch", "Seated Trunk Rotation",
+  // Hip
+  "Straight Leg Raise", "Hip Abduction", "Hip Extension", "Clamshell Exercise", "Glute Bridge",
+  // Knee (MUST include Knee Flexion)
+  "Heel Slides", "Short Arc Quad", "Hamstring Curl", "Mini Squats", "Knee Flexion",
+  // Ankle & Foot
+  "Ankle Pumps", "Heel Raises", "Toe Raises", "Calf Stretch", "Single-Leg Stand", // Wait, Single-Leg Stand is also in Balance. We'll use 5 distinct.
+  // Wrist & Hand
+  "Wrist Flexion", "Wrist Extension", "Wrist Pronation", "Finger Flexion", "Grip Strengthening",
+  // Balance & Coordination
+  "Weight Shifting", "Marching in Place", "Reaching Exercises", "Tandem Standing", "Side Stepping",
+  // Walking (Gait)
+  "Sit-to-Stand Practice", "Stair Climbing", "Backward Walking", "Step Length Training", "Assisted Walking",
+  // Stretching
+  "Hamstring Stretch", "Quadriceps Stretch", "Hip Flexor Stretch", "Chest Stretch", "Lower Back Stretch",
+  // Strengthening
+  "Squats", "Lunges", "Wall Push-Ups", "Resistance Band Row", "Bridge Exercise",
+  // Range of Motion (ROM)
+  "Shoulder ROM", "Elbow ROM", "Hip ROM", "Knee ROM", "Ankle ROM",
+  // Posture Correction
+  "Chin Tucks", "Scapular Retraction", "Wall Angels", "Thoracic Extension", "Seated Posture Training",
+  // Breathing
+  "Diaphragmatic Breathing", "Pursed-Lip Breathing", "Deep Breathing Exercise", "Controlled Coughing", "Box Breathing"
+])
 
 // Helper to define landmark configs for Mode A
 const getLandmarkConfig = (type: string, primaryJoint: string, landmarks: [number, number, number], range: [number, number], start: number, top: number) => ({
@@ -37,7 +69,8 @@ function addExercise(name: string, category: string, mode: string, short: string
       instructionsShort: short,
       instructionsFull: full,
       landmarkConfig: lm,
-      targetHoldSeconds: hold
+      targetHoldSeconds: hold,
+      isActive: ACTIVE_EXERCISES.has(name)
     }
   }
 }
@@ -263,7 +296,8 @@ async function safeSeed() {
           instructionsFull: data.instructionsFull,
           targetHoldSeconds: data.targetHoldSeconds,
           landmarkConfig: data.landmarkConfig || undefined,
-          targetROM: data.landmarkConfig?.rep_top_angle || existing.targetROM
+          targetROM: data.landmarkConfig?.rep_top_angle || existing.targetROM,
+          isActive: data.isActive
         }
       })
     } else {
@@ -277,7 +311,8 @@ async function safeSeed() {
           instructionsFull: data.instructionsFull,
           targetHoldSeconds: data.targetHoldSeconds,
           landmarkConfig: data.landmarkConfig || undefined,
-          targetROM: data.landmarkConfig?.rep_top_angle || null
+          targetROM: data.landmarkConfig?.rep_top_angle || null,
+          isActive: data.isActive
         }
       })
     }

@@ -21,7 +21,8 @@ export default async function LibraryHome({
         name: {
           contains: q,
           mode: "insensitive"
-        }
+        },
+        isActive: true
       },
       orderBy: { name: "asc" }
     })
@@ -76,6 +77,7 @@ export default async function LibraryHome({
 
   // Otherwise, show categories
   const exercises = await prisma.exercise.findMany({
+    where: { isActive: true },
     select: { categories: true }
   })
   

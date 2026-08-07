@@ -40,6 +40,7 @@ model Exercise {
 
   
   // Phase 3: Escalation
+  isActive    Boolean  @default(true)
   escalationFlag Boolean @default(false)
   escalationNote String?
 

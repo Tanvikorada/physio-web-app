@@ -19,7 +19,8 @@ export default async function CategoryPage({
     where: {
       categories: {
         has: categoryName
-      }
+      },
+      isActive: true
     },
     orderBy: { name: "asc" }
   })

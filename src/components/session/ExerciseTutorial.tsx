@@ -203,6 +203,11 @@ export function ExerciseTutorial({ exerciseType, onReady, initialExerciseData }:
   }
 
   // camera step
+  
+  const isSidewaysExercise = initialExerciseData?.landmarkConfig?.primary_joint === "knee" || 
+                             initialExerciseData?.landmarkConfig?.primary_joint === "hip" ||
+                             isKneeFlexion
+
   return (
     <div className="w-full space-y-6">
       <div className="text-center space-y-1">
@@ -216,7 +221,7 @@ export function ExerciseTutorial({ exerciseType, onReady, initialExerciseData }:
         <div>
           <p className="font-serif text-xl text-ink">{data.cameraPosition}</p>
           <p className="font-sans text-sm text-ink/60 mt-2 max-w-xs mx-auto">
-            {isKneeFlexion
+            {isSidewaysExercise
               ? "Your hip, knee, and ankle should all be visible from the side. If they are not, the angle can't be measured."
               : "Both shoulders and your arms should be fully visible. Back up a step if needed."}
           </p>
@@ -227,7 +232,7 @@ export function ExerciseTutorial({ exerciseType, onReady, initialExerciseData }:
       <div className="rounded-xl border border-line bg-white p-4 space-y-3">
         <p className="font-sans text-xs text-ink/40 uppercase tracking-wide">Before you start</p>
         {[
-          isKneeFlexion ? "I'm standing sideways to the camera" : "I'm facing the camera",
+          isSidewaysExercise ? "I'm standing sideways to the camera" : "I'm facing the camera",
           "My full body is visible and not cropped",
           "I have enough space to move freely",
           "I'll start with my arm/leg in the resting position",

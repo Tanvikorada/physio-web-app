@@ -506,10 +506,16 @@ export function LiveCamera({ exerciseType, onSessionComplete, targetModifier, dy
   }
 
   const isKneeFlexion = exerciseType.toLowerCase() === "kneeflexion" || exerciseType.toLowerCase() === "knee_flexion"
+  // Target angle should be read from config
   const baseTargetAngle = isHandTracking 
     ? (engine as HandExerciseEngine).config.rep_top_angle 
-    : (isKneeFlexion ? 135 : 180)
-  const targetAngle = isHandTracking ? baseTargetAngle : baseTargetAngle * (targetModifier?.romModifier || 1.0)
+    : (engine as ExerciseEngine).config.rep_top_angle
+  const targetAngle = isHandTracking ? baseTargetAngle : baseTargetAngle // Note: romModifier is already applied inside ExerciseEngine constructor, but wait!
+  // In previous code:
+  // const targetAngle = isHandTracking ? baseTargetAngle : baseTargetAngle * (targetModifier?.romModifier || 1.0)
+  // BUT in ExerciseEngine, romModifier is applied to config.rep_top_angle!
+  // So baseTargetAngle here already HAS the modifier! 
+  // Let's just use baseTargetAngle directly.
   const isSignal = state.formSignal === "poor"
 
   return (
@@ -679,32 +685,37 @@ export function LiveCamera({ exerciseType, onSessionComplete, targetModifier, dy
                 />
               </div>
 
-              {/* Live coaching cue badge */}
-              {state.liveCue && (
-                <div
-                  className={`absolute -bottom-10 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full px-4 py-1.5 font-sans text-sm font-semibold shadow-lg transition-all duration-300 ${
-                    state.liveCue === "Good rep!" || state.liveCue === "Hold it!" || state.liveCue === "Holding position..."
-                      ? "bg-recovery text-white"
-                      : state.liveCue === "Almost there!" || state.liveCue === "Keep lifting!" || state.liveCue === "Lower slowly"
-                      ? "bg-paper text-recovery border border-recovery/40"
-                      : "bg-signal text-white"
-                  }`}
-                >
-                  {t(state.liveCue)}
-                </div>
-              )}
             </div>
           ) : null}
         </div>
 
-        {/* Bottom — Form Warning */}
-        <div className="h-14 flex items-end justify-center">
-          {calibrationPhase === "ready" && state.formWarning && (
-            <div className="rounded-full bg-signal/90 px-4 py-2 text-paper shadow-lg font-sans text-xs font-medium">
-              {t(state.formWarning)}
+        {/* Center Prominent Live Coaching Cue HUD */}
+        <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-30">
+          {calibrationPhase === "ready" && (state.liveCue || state.formWarning) && (
+            <div className="mt-48 transition-all duration-300 ease-in-out">
+              {state.formSignal === "poor" ? (
+                <div className="bg-black/70 backdrop-blur-md rounded-2xl px-6 py-4 border-2 border-signal shadow-2xl animate-in zoom-in-95 duration-200">
+                  <p className="font-sans text-2xl md:text-3xl font-bold text-signal text-center leading-tight drop-shadow-md">
+                    {t(state.formWarning || state.liveCue)}
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-black/60 backdrop-blur-md rounded-2xl px-6 py-3 border border-white/10 shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <p className={`font-sans text-2xl md:text-3xl font-bold text-center tracking-wide drop-shadow-md ${
+                    state.liveCue === "Good rep!" || state.liveCue === "Hold it!" || state.liveCue === "Holding position..."
+                      ? "text-recovery"
+                      : "text-white"
+                  }`}>
+                    {t(state.liveCue)}
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>
+
+        {/* Bottom spacing where form warning used to be */}
+        <div className="h-14 flex items-end justify-center" />
       </div>
     </div>
   )

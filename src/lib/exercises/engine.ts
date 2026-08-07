@@ -84,9 +84,31 @@ export class ExerciseEngine {
       throw new Error(`Exercise config missing for ${type}`)
     }
 
+    // Determine if the exercise involves a decreasing raw angle (e.g., knee flexion)
+    // engine.ts logic inherently assumes angle increases during concentric phase,
+    // so we must invert the angles if start > top.
+    const isInverted = baseConfig.angle_calculation === "180-raw" || baseConfig.rep_start_angle > baseConfig.rep_top_angle
+
+    let start = baseConfig.rep_start_angle
+    let top = baseConfig.rep_top_angle
+    let validRange = baseConfig.angle_range_valid || [0, 180]
+
+    if (isInverted && start > top) {
+      start = 180 - start
+      top = 180 - top
+      validRange = [180 - validRange[1], 180 - validRange[0]]
+      // Ensure range is min, max
+      if (validRange[0] > validRange[1]) {
+        validRange = [validRange[1], validRange[0]]
+      }
+    }
+
     this.config = {
       ...baseConfig,
-      rep_top_angle: baseConfig.rep_top_angle * romModifier,
+      rep_start_angle: start,
+      rep_top_angle: top * romModifier,
+      angle_range_valid: validRange,
+      isInverted
     }
 
     this.state = {
@@ -186,29 +208,14 @@ export class ExerciseEngine {
       )
     }
 
-    const isKneeFlexion = 
-      this.type.toLowerCase() === "kneeflexion" || 
-      this.type.toLowerCase() === "knee_flexion" ||
-      this.config?.exercise_id === "knee_flexion"
-
-    const isShoulderAbduction = 
-      this.type.toLowerCase() === "shoulderabduction" || 
-      this.type.toLowerCase() === "shoulder_abduction" ||
-      this.config?.exercise_id === "shoulder_abduction"
-
-    let computedAngle = 0
-    if (isKneeFlexion) {
-      computedAngle = Math.abs(180 - rawAngle)
-    } else {
-      // Default to rawAngle for ShoulderAbduction and other exercises
-      computedAngle = rawAngle
-    }
+    // Generic, config-driven angle calculation
+    let computedAngle = this.config.isInverted ? Math.abs(180 - rawAngle) : rawAngle
 
     // ── DIAGNOSTIC CP4: raw angle result ─────────────────────────────────────
     if (Math.random() < 0.033) {
       console.log(
         `[DIAG CP4 RAW ANGLE] rawAngle=${rawAngle.toFixed(2)}° computedAngle=${computedAngle.toFixed(2)}°`,
-        `(${isKneeFlexion ? "knee_flexion uses 180-raw" : "shoulder_abduction / raw uses raw"})`,
+        `(${this.config.isInverted ? "inverted 180-raw" : "raw uses raw"})`,
       )
     }
 
@@ -236,7 +243,9 @@ export class ExerciseEngine {
 
     // Setup-phase cue: prompt user to get into starting position
     if (this.state.phase === "setup") {
-      const exerciseLabel = isKneeFlexion ? "leg straight" : "arm at side"
+      const exerciseLabel = this.config.primary_joint === "knee" || this.config.primary_joint === "hip" || this.config.primary_joint === "ankle" 
+        ? "leg straight" 
+        : "arm at side"
       this.setLiveCue(`Start: ${exerciseLabel}`, timestampMs)
     }
 
