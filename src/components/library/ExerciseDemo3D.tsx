@@ -32,13 +32,22 @@ function Model({ config, isPlaying }: ExerciseDemo3DProps & { isPlaying: boolean
   useEffect(() => {
     let foundBone = null
     fbx.traverse((object) => {
-      if (object.name.includes(config.boneName)) {
+      // FBX files often add prefixes like "Namespace:" to node names
+      // We must match exactly the bone name (or namespace + bone name), but NEVER match a child bone like "RightForeArm" when looking for "RightArm"
+      if (object.name === config.boneName || object.name.endsWith(':' + config.boneName)) {
         foundBone = object
       }
     })
     jointRef.current = foundBone as THREE.Bone | null
     if (foundBone) {
       initialQuatRef.current = (foundBone as THREE.Bone).quaternion.clone()
+    }
+
+    // DEBUG: Add SkeletonHelper to visually debug bone rotations vs skinning
+    const helper = new THREE.SkeletonHelper(fbx)
+    fbx.add(helper)
+    return () => {
+      fbx.remove(helper)
     }
   }, [fbx, config.boneName])
 
