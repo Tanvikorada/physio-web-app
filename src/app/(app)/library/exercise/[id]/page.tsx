@@ -5,7 +5,7 @@ import { ChevronLeft, Info, Play } from "lucide-react"
 import { SaveButton } from "@/components/library/SaveButton"
 import { cookies } from "next/headers"
 import { getDictionary } from "@/lib/i18n"
-import { ExerciseDemo3D } from "@/components/library/ExerciseDemo3D"
+import { ExerciseDemo3D, Demo3DConfig } from "@/components/library/ExerciseDemo3D"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 
@@ -56,21 +56,27 @@ export default async function ExerciseDetailPage({
   const isPlayable = exercise.trackingMode === "A" || exercise.trackingMode === "B" || exercise.trackingMode === "D"
 
   // 3D Demo configuration mapping for flagship exercises
-  const demoConfig: Record<string, { joint: string, axis: 'x' | 'y' | 'z', defaultStart: number, defaultTarget: number }> = {
-    "Shoulder Abduction": { joint: "RightArm", axis: "z", defaultStart: 25, defaultTarget: 90 },
-    "Shoulder Flexion": { joint: "RightArm", axis: "x", defaultStart: 20, defaultTarget: 140 },
-    "Heel Slides": { joint: "RightLeg", axis: "x", defaultStart: 160, defaultTarget: 90 },
-    "Neck Rotation": { joint: "Neck", axis: "y", defaultStart: 15, defaultTarget: 60 },
-    "Hip Abduction": { joint: "RightUpLeg", axis: "z", defaultStart: 175, defaultTarget: 145 },
-    "Ankle Pumps": { joint: "RightFoot", axis: "x", defaultStart: 120, defaultTarget: 90 },
+  const demoConfig: Record<string, Demo3DConfig> = {
+    "Shoulder Abduction": { boneName: "RightArm", rotationAxis: "z", rotationDirection: 1, startAngleDeg: 25, targetAngleDeg: 90, useQuaternionSlerp: true },
+    "Shoulder Flexion": { boneName: "RightArm", rotationAxis: "x", rotationDirection: 1, startAngleDeg: 20, targetAngleDeg: 140, useQuaternionSlerp: true },
+    "Heel Slides": { boneName: "RightLeg", rotationAxis: "x", rotationDirection: 1, startAngleDeg: 160, targetAngleDeg: 90, useQuaternionSlerp: true },
+    "Neck Rotation": { boneName: "Neck", rotationAxis: "y", rotationDirection: 1, startAngleDeg: 15, targetAngleDeg: 60, useQuaternionSlerp: true },
+    "Hip Abduction": { boneName: "RightUpLeg", rotationAxis: "z", rotationDirection: 1, startAngleDeg: 175, targetAngleDeg: 145, useQuaternionSlerp: true },
+    "Ankle Pumps": { boneName: "RightFoot", rotationAxis: "x", rotationDirection: 1, startAngleDeg: 120, targetAngleDeg: 90, useQuaternionSlerp: true },
   }
 
   const demoParams = demoConfig[exercise.name]
   
   // Extract landmark config if available
   const lmConfig = exercise.landmarkConfig as any
-  const startAngle = lmConfig?.rep_start_angle ?? demoParams?.defaultStart
-  const targetAngle = lmConfig?.rep_top_angle ?? demoParams?.defaultTarget
+  const startAngle = lmConfig?.rep_start_angle ?? demoParams?.startAngleDeg
+  const targetAngle = lmConfig?.rep_top_angle ?? demoParams?.targetAngleDeg
+
+  if (demoParams) {
+    // Override with dynamic tracking angles if they exist
+    demoParams.startAngleDeg = startAngle;
+    demoParams.targetAngleDeg = targetAngle;
+  }
 
   return (
     <div className="flex flex-col min-h-screen p-6 max-w-2xl mx-auto">
@@ -93,12 +99,7 @@ export default async function ExerciseDetailPage({
       </div>
 
       {demoParams && (
-        <ExerciseDemo3D 
-          primaryJoint={demoParams.joint}
-          axis={demoParams.axis}
-          startAngle={startAngle}
-          targetAngle={targetAngle}
-        />
+        <ExerciseDemo3D config={demoParams} />
       )}
 
       <div className="bg-paper border border-line rounded-2xl p-5 mb-6">

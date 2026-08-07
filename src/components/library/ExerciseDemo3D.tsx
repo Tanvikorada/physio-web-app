@@ -6,52 +6,72 @@ import * as THREE from 'three'
 import { Play, Pause } from 'lucide-react'
 import { useTranslation } from '@/components/DictionaryProvider'
 
+export type Demo3DConfig = {
+  boneName: string;
+  rotationAxis: "x" | "y" | "z";
+  rotationDirection: 1 | -1;
+  startAngleDeg: number;
+  targetAngleDeg: number;
+  useQuaternionSlerp: boolean;
+};
+
 interface ExerciseDemo3DProps {
-  primaryJoint: string // e.g. "mixamorigLeftArm"
-  startAngle: number   // degrees
-  targetAngle: number  // degrees
-  axis: 'x' | 'y' | 'z'
+  config: Demo3DConfig;
 }
 
-function Model({ primaryJoint, startAngle, targetAngle, axis, isPlaying }: ExerciseDemo3DProps & { isPlaying: boolean }) {
+function Model({ config, isPlaying }: ExerciseDemo3DProps & { isPlaying: boolean }) {
   const fbx = useFBX('/models/tracksuit.fbx')
   const jointRef = useRef<THREE.Bone | null>(null)
-  const initialRotRef = useRef<THREE.Euler | null>(null)
+  const initialQuatRef = useRef<THREE.Quaternion | null>(null)
+  
+  // Set to true to force a static target pose for verifying the axis and bone name.
+  // Set to false to run the full smooth loop.
+  const debugStaticPose = true; 
   
   // Find the bone on mount
   useEffect(() => {
     let foundBone = null
     fbx.traverse((object) => {
-      // FBX files often add prefixes like "Namespace:" to node names
-      // We also drop the explicit isBone check just in case FBXLoader imported them as Object3D
-      if (object.name.includes(primaryJoint)) {
+      if (object.name.includes(config.boneName)) {
         foundBone = object
       }
     })
     jointRef.current = foundBone as THREE.Bone | null
     if (foundBone) {
-      // Save the original rest rotation so we apply relative deltas, preventing axis twisting
-      initialRotRef.current = (foundBone as THREE.Bone).rotation.clone()
+      initialQuatRef.current = (foundBone as THREE.Bone).quaternion.clone()
     }
-  }, [fbx, primaryJoint])
+  }, [fbx, config.boneName])
 
   useFrame((state) => {
-    if (!jointRef.current || !initialRotRef.current || !isPlaying) return
+    if (!jointRef.current || !initialQuatRef.current) return
 
-    // Create a smooth looping value between 0 and 1
-    // Math.sin oscillates between -1 and 1. We map it to 0..1
-    const t = (Math.sin(state.clock.elapsedTime * 1.5) + 1) / 2
+    // If not in debug mode, respect the playing state. If paused, lock to start position (progress = 0)
+    const time = state.clock.elapsedTime
+    const progress = (debugStaticPose || !isPlaying) ? 0 : (Math.sin(time * 1.5) + 1) / 2
     
-    const startRad = THREE.MathUtils.degToRad(startAngle)
-    const targetRad = THREE.MathUtils.degToRad(targetAngle)
-    
-    // Lerp between start and target
-    const currentAngle = THREE.MathUtils.lerp(startRad, targetRad, t)
-    const delta = currentAngle - startRad
+    // In debugStaticPose mode, we override progress to 1 so it holds at targetAngle.
+    const effectiveProgress = debugStaticPose ? 1 : progress;
 
-    if (axis === 'x') jointRef.current.rotation.x = initialRotRef.current.x + delta
-    if (axis === 'y') jointRef.current.rotation.y = initialRotRef.current.y + delta
-    if (axis === 'z') jointRef.current.rotation.z = initialRotRef.current.z + delta
+    const startRad = THREE.MathUtils.degToRad(config.startAngleDeg)
+    const targetRad = THREE.MathUtils.degToRad(config.targetAngleDeg)
+    
+    // Lerp angle based on progress and apply direction multiplier
+    const currentAngle = THREE.MathUtils.lerp(startRad, targetRad, effectiveProgress)
+    const delta = (currentAngle - startRad) * config.rotationDirection;
+
+    const axisVec = new THREE.Vector3(
+      config.rotationAxis === 'x' ? 1 : 0,
+      config.rotationAxis === 'y' ? 1 : 0,
+      config.rotationAxis === 'z' ? 1 : 0
+    )
+    
+    // Create quaternion for the local delta rotation
+    const deltaQuat = new THREE.Quaternion().setFromAxisAngle(axisVec, delta)
+    
+    // Apply local delta to the initial rest quaternion
+    if (config.useQuaternionSlerp) {
+        jointRef.current.quaternion.copy(initialQuatRef.current).multiply(deltaQuat)
+    }
   })
 
   // Enable shadow casting for realism
@@ -67,7 +87,7 @@ function Model({ primaryJoint, startAngle, targetAngle, axis, isPlaying }: Exerc
   return <primitive object={fbx} position={[0, -1, 0]} scale={0.01} />
 }
 
-export function ExerciseDemo3D({ primaryJoint, startAngle, targetAngle, axis }: ExerciseDemo3DProps) {
+export function ExerciseDemo3D({ config }: ExerciseDemo3DProps) {
   const [isPlaying, setIsPlaying] = useState(true)
   const { t } = useTranslation()
 
@@ -80,10 +100,7 @@ export function ExerciseDemo3D({ primaryJoint, startAngle, targetAngle, axis }: 
         
         <React.Suspense fallback={null}>
           <Model 
-            primaryJoint={primaryJoint} 
-            startAngle={startAngle} 
-            targetAngle={targetAngle} 
-            axis={axis}
+            config={config}
             isPlaying={isPlaying}
           />
         </React.Suspense>
