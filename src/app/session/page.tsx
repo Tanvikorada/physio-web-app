@@ -32,18 +32,16 @@ export default async function SessionPage({
   }
 
   if (exercise) {
-      exerciseData = {
-        id: exercise.id,
-        name: exercise.name,
-        trackingMode: exercise.trackingMode,
-        targetHoldSeconds: exercise.targetHoldSeconds,
-        instructionsFull: exercise.instructionsFull ?? null,
-        description: exercise.description ?? null,
-        landmarkConfig: exercise.landmarkConfig ? JSON.parse(JSON.stringify(exercise.landmarkConfig)) : null
-      }
+    exerciseData = {
+      id: exercise.id,
+      name: exercise.name,
+      trackingMode: exercise.trackingMode,
+      targetHoldSeconds: exercise.targetHoldSeconds,
+      instructionsFull: exercise.instructionsFull ?? null,
+      description: exercise.description ?? null,
+      landmarkConfig: exercise.landmarkConfig ? JSON.parse(JSON.stringify(exercise.landmarkConfig)) : null
     }
   }
-
   // Pass locale to client so session components can translate
   const cookieStore = await cookies()
   const locale = cookieStore.get("NEXT_LOCALE")?.value || "en"
