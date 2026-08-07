@@ -43,9 +43,9 @@ const HAND_CONNECTIONS: [number, number][] = [
 // ─────────────────────────────────────────────────────────────────────────────
 // Accuracy constants
 // ─────────────────────────────────────────────────────────────────────────────
-const EMA_ALPHA = 0.35           // Landmark smoothing factor (lower = smoother but more lag)
-const CONFIDENCE_THRESHOLD = 0.6 // Minimum per-landmark visibility to accept a frame
-const CALIBRATION_FRAMES = 60    // Number of frames to hold still during calibration (~2s at 30fps)
+const EMA_ALPHA = 1.0           // Disabled for debugging
+const CONFIDENCE_THRESHOLD = 0.35 // Lowered to avoid false rejections
+const CALIBRATION_FRAMES = 0    // Bypassed for debugging
 
 // Joint name mapping for user-facing cue messages
 const JOINT_NAMES: Record<number, string> = {

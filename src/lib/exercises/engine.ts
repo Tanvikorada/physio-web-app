@@ -60,11 +60,9 @@ export class ExerciseEngine {
   private monotonicFails: number = 0
   private oppositeShoulderInitialY: number | null = null
 
-  // Multi-frame rep validation: angle must stay above rep_top_angle for this many
-  // consecutive frames before the peak is confirmed — prevents a single noisy spike
-  // from falsely triggering rep completion.
+  // Multi-frame rep validation
   private peakFrameCount: number = 0
-  private readonly PEAK_FRAMES_REQUIRED = 4
+  private readonly PEAK_FRAMES_REQUIRED = 1 // Reverted to 1 for debugging
 
   // Live cue debouncing — only update text when it actually changes
   private lastCueText: string | null = null
