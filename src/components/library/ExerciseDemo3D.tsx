@@ -56,7 +56,7 @@ function Model({ primaryJoint, startAngle, targetAngle, axis, isPlaying }: Exerc
     })
   }, [fbx])
 
-  return <primitive object={fbx} position={[0, -1, 0]} />
+  return <primitive object={fbx} position={[0, -1, 0]} scale={0.01} />
 }
 
 export function ExerciseDemo3D({ primaryJoint, startAngle, targetAngle, axis }: ExerciseDemo3DProps) {
@@ -70,13 +70,15 @@ export function ExerciseDemo3D({ primaryJoint, startAngle, targetAngle, axis }: 
         <directionalLight position={[2, 5, 2]} intensity={2} />
         <directionalLight position={[-2, -5, -2]} intensity={0.5} />
         
-        <Model 
-          primaryJoint={primaryJoint} 
-          startAngle={startAngle} 
-          targetAngle={targetAngle} 
-          axis={axis}
-          isPlaying={isPlaying}
-        />
+        <React.Suspense fallback={null}>
+          <Model 
+            primaryJoint={primaryJoint} 
+            startAngle={startAngle} 
+            targetAngle={targetAngle} 
+            axis={axis}
+            isPlaying={isPlaying}
+          />
+        </React.Suspense>
         
         {/* Orbit controls limited to prevent getting lost */}
         <OrbitControls 
