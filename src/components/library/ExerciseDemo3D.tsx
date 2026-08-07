@@ -21,7 +21,9 @@ function Model({ primaryJoint, startAngle, targetAngle, axis, isPlaying }: Exerc
   useEffect(() => {
     let foundBone = null
     fbx.traverse((object) => {
-      if ((object as THREE.Bone).isBone && object.name === primaryJoint) {
+      // FBX files often add prefixes like "Namespace:" to node names
+      // We also drop the explicit isBone check just in case FBXLoader imported them as Object3D
+      if (object.name.includes(primaryJoint)) {
         foundBone = object
       }
     })
