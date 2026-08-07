@@ -57,7 +57,7 @@ export default async function ExerciseDetailPage({
 
   // 3D Demo configuration mapping for flagship exercises
   const demoConfig: Record<string, Demo3DConfig> = {
-    "Shoulder Abduction": { boneName: "RightArm", rotationAxis: "z", rotationDirection: 1, startAngleDeg: 25, targetAngleDeg: 90, useQuaternionSlerp: true },
+    "Shoulder Abduction": { boneName: "RightArm", rotationAxis: "x", rotationDirection: 1, startAngleDeg: 25, targetAngleDeg: 90, useQuaternionSlerp: true },
     "Shoulder Flexion": { boneName: "RightArm", rotationAxis: "x", rotationDirection: 1, startAngleDeg: 20, targetAngleDeg: 140, useQuaternionSlerp: true },
     "Heel Slides": { boneName: "RightLeg", rotationAxis: "x", rotationDirection: 1, startAngleDeg: 160, targetAngleDeg: 90, useQuaternionSlerp: true },
     "Neck Rotation": { boneName: "Neck", rotationAxis: "y", rotationDirection: 1, startAngleDeg: 15, targetAngleDeg: 60, useQuaternionSlerp: true },
