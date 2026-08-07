@@ -60,6 +60,7 @@ const JOINT_NAMES: Record<number, string> = {
 
 interface LiveCameraProps {
   exerciseType: string
+  exerciseName?: string
   onSessionComplete: (finalState: {
     reps: number
     rejectedReps: number
@@ -75,7 +76,7 @@ interface LiveCameraProps {
   targetHoldSeconds?: number | null
 }
 
-export function LiveCamera({ exerciseType, onSessionComplete, targetModifier, dynamicConfig, trackingMode, targetHoldSeconds }: LiveCameraProps) {
+export function LiveCamera({ exerciseType, exerciseName, onSessionComplete, targetModifier, dynamicConfig, trackingMode, targetHoldSeconds }: LiveCameraProps) {
   const { t } = useTranslation()
   const isHandTracking = trackingMode === "C"
   
@@ -505,7 +506,7 @@ export function LiveCamera({ exerciseType, onSessionComplete, targetModifier, dy
     )
   }
 
-  const isKneeFlexion = exerciseType.toLowerCase() === "kneeflexion" || exerciseType.toLowerCase() === "knee_flexion"
+  const primaryJoint = isHandTracking ? "wrist" : ((engine as ExerciseEngine).config?.primary_joint || "shoulder")
   // Target angle should be read from config
   const baseTargetAngle = isHandTracking 
     ? (engine as HandExerciseEngine).config.rep_top_angle 
@@ -519,88 +520,117 @@ export function LiveCamera({ exerciseType, onSessionComplete, targetModifier, dy
   const isSignal = state.formSignal === "poor"
 
   return (
-    <div className="relative flex h-full w-full flex-col bg-ink overflow-hidden">
-      {/* Video Feed Layer */}
-      <video
-        ref={videoRef}
-        playsInline
-        muted
-        className="absolute inset-0 h-full w-full object-cover opacity-40"
-        style={{ transform: facingMode === "user" ? "scaleX(-1)" : "none" }}
-      />
+    <div className="relative flex h-full w-full flex-col md:flex-row bg-ink overflow-hidden">
+      
+      {/* ── PANEL 1: CAMERA (Top on mobile, Left on desktop) ── */}
+      <div className="relative w-full h-[45%] md:h-full md:w-1/2 flex-shrink-0 bg-black flex items-center justify-center overflow-hidden border-b md:border-b-0 md:border-r border-white/10">
+        {/* Video Feed Layer */}
+        <video
+          ref={videoRef}
+          playsInline
+          muted
+          className="absolute inset-0 h-full w-full object-contain"
+          style={{ transform: facingMode === "user" ? "scaleX(-1)" : "none" }}
+        />
 
-      {/* Skeleton Canvas Overlay */}
-      <canvas
-        ref={canvasRef}
-        className="absolute inset-0 h-full w-full pointer-events-none"
-        style={{ transform: facingMode === "user" ? "scaleX(-1)" : "none" }}
-      />
+        {/* Skeleton Canvas Overlay */}
+        <canvas
+          ref={canvasRef}
+          className="absolute inset-0 h-full w-full object-contain pointer-events-none"
+          style={{ transform: facingMode === "user" ? "scaleX(-1)" : "none" }}
+        />
 
-      {/* ── Calibration Overlay ── */}
-      {!isInitializing && calibrationPhase === "calibrating" && (
-        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-ink/80 backdrop-blur-sm px-8">
-          <div className="w-full max-w-xs space-y-5 text-center">
-            <div className="w-14 h-14 rounded-full bg-paper/10 flex items-center justify-center mx-auto">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-7 h-7 text-paper">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-              </svg>
+        {/* ── Calibration Overlay ── */}
+        {!isInitializing && calibrationPhase === "calibrating" && (
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm px-6">
+            <div className="w-full max-w-xs space-y-4 text-center">
+              <div className="w-12 h-12 rounded-full bg-paper/10 flex items-center justify-center mx-auto">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-6 h-6 text-paper">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                </svg>
+              </div>
+              <div>
+                <p className="font-sans text-[10px] uppercase tracking-widest text-paper/40 mb-1">Getting Ready</p>
+                <h2 className="font-serif text-xl text-paper">Hold still</h2>
+                <p className="font-sans text-xs text-paper/60 mt-1 leading-relaxed">
+                  {calibrationFailReason
+                    ? calibrationFailReason
+                    : "Stay in frame and hold still for a moment."}
+                </p>
+              </div>
+              {/* Progress bar */}
+              <div className="w-full h-1.5 bg-paper/10 rounded-full overflow-hidden mt-2">
+                <div
+                  className="h-full bg-recovery rounded-full transition-all duration-100"
+                  style={{ width: `${calibrationProgress}%` }}
+                />
+              </div>
+              {calibrationFailReason && (
+                <p className="font-sans text-[10px] text-signal/80 mt-1">
+                  Step into frame so your joints are visible
+                </p>
+              )}
             </div>
-            <div>
-              <p className="font-sans text-xs uppercase tracking-widest text-paper/40 mb-1">Getting Ready</p>
-              <h2 className="font-serif text-2xl text-paper">Hold still</h2>
-              <p className="font-sans text-sm text-paper/60 mt-2 leading-relaxed">
-                {calibrationFailReason
-                  ? calibrationFailReason
-                  : "We're calibrating to your position. Stay in frame and hold still for a moment."}
-              </p>
-            </div>
-            {/* Progress bar */}
-            <div className="w-full h-1.5 bg-paper/10 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-recovery rounded-full transition-all duration-100"
-                style={{ width: `${calibrationProgress}%` }}
-              />
-            </div>
-            {calibrationFailReason && (
-              <p className="font-sans text-xs text-signal/80">
-                Step into frame so your joints are clearly visible
-              </p>
-            )}
           </div>
+        )}
+
+        {/* Center Prominent Live Coaching Cue HUD */}
+        <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-30 p-4">
+          {calibrationPhase === "ready" && (state.liveCue || state.formWarning) && (
+            <div className="mt-24 md:mt-32 transition-all duration-300 ease-in-out w-full flex justify-center">
+              {state.formSignal === "poor" ? (
+                <div className="bg-black/70 backdrop-blur-md rounded-2xl px-5 py-3 border-2 border-signal shadow-2xl animate-in zoom-in-95 duration-200">
+                  <p className="font-sans text-xl md:text-2xl font-bold text-signal text-center leading-tight drop-shadow-md">
+                    {t(state.formWarning || state.liveCue)}
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-black/60 backdrop-blur-md rounded-2xl px-5 py-2.5 border border-white/10 shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <p className={`font-sans text-lg md:text-xl font-bold text-center tracking-wide drop-shadow-md ${
+                    state.liveCue === "Good rep!" || state.liveCue === "Hold it!" || state.liveCue === "Holding position..."
+                      ? "text-recovery"
+                      : "text-white"
+                  }`}>
+                    {t(state.liveCue)}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
-      {/* UI Overlay Layer */}
-      <div className="absolute inset-0 flex flex-col p-4 md:p-6 z-10">
-
+      {/* ── PANEL 2: DASHBOARD INFO (Bottom on mobile, Right on desktop) ── */}
+      <div className="relative w-full flex-1 md:w-1/2 flex flex-col p-5 md:p-8 overflow-y-auto bg-ink z-10 shadow-[0_-10px_20px_rgba(0,0,0,0.1)] md:shadow-none">
+        
         {/* Top bar */}
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between shrink-0">
           <div className="flex flex-col">
-            <span className="font-sans text-xs text-paper/60 uppercase tracking-wide">
-              {isHandTracking ? t(exerciseType) : t(isKneeFlexion ? "Knee Flexion" : "Shoulder Abduction")}
+            <span className="font-sans text-xs md:text-sm text-paper/60 uppercase tracking-wide">
+              {t(exerciseName || exerciseType)}
             </span>
-            <div className="flex items-baseline gap-2">
-              <span className="font-serif text-3xl text-paper">
+            <div className="flex items-baseline gap-2 mt-1">
+              <span className="font-serif text-3xl md:text-4xl text-paper">
                 {state.reps}
               </span>
-              <span className="font-sans text-sm text-paper/70">{t("valid reps")}</span>
+              <span className="font-sans text-sm md:text-base text-paper/70">{t("valid reps")}</span>
               {state.rejectedReps > 0 && (
-                <span className="font-sans text-xs text-signal/80">
+                <span className="font-sans text-xs md:text-sm text-signal/80 ml-1">
                   ({state.rejectedReps} {t("not counted")})
                 </span>
               )}
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 md:gap-3">
             {/* Camera toggle button */}
             <button
               onClick={handleCameraToggle}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-paper/10 text-paper hover:bg-paper/20 transition-colors border border-paper/20"
+              className="flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-full bg-paper/5 text-paper hover:bg-paper/10 transition-colors border border-paper/10"
               title="Switch camera"
               aria-label="Switch camera front/back"
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-5 h-5">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-5 h-5 md:w-6 md:h-6">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                 <path strokeLinecap="round" strokeLinejoin="round" d="M16 5l2 2-2 2" />
@@ -610,7 +640,7 @@ export function LiveCamera({ exerciseType, onSessionComplete, targetModifier, dy
             <Button
               variant="outline"
               size="sm"
-              className="text-paper border-paper/30 hover:bg-paper/10 text-xs h-9 px-3"
+              className="text-paper border-paper/20 hover:bg-paper/10 text-xs md:text-sm h-10 md:h-12 px-4 md:px-5 rounded-full"
               onClick={handleEndSession}
             >
               {t("End Session")}
@@ -618,42 +648,45 @@ export function LiveCamera({ exerciseType, onSessionComplete, targetModifier, dy
           </div>
         </div>
 
-        {/* Target Modifier Banner */}
-        {targetModifier && (
-          <div className="mt-3 w-full flex justify-center">
-            <div className="rounded-md bg-signal/90 px-4 py-2 text-paper shadow-lg font-sans text-xs font-medium max-w-sm text-center">
+        {/* Modifier & Cue Banners */}
+        <div className="w-full flex flex-col gap-2 mt-4 shrink-0">
+          {targetModifier && (
+            <div className="rounded-xl bg-signal/90 px-4 py-2.5 text-paper shadow-lg font-sans text-xs md:text-sm font-medium text-center">
               {targetModifier.message}
             </div>
-          </div>
-        )}
-
-        {/* Low confidence cue banner */}
-        {calibrationPhase === "ready" && lowConfidenceCue && (
-          <div className="mt-3 w-full flex justify-center">
-            <div className="rounded-full bg-signal/90 px-4 py-2 text-paper shadow-lg font-sans text-xs font-semibold">
+          )}
+          {calibrationPhase === "ready" && lowConfidenceCue && (
+            <div className="rounded-xl bg-signal/90 px-4 py-2.5 text-paper shadow-lg font-sans text-xs md:text-sm font-semibold text-center">
               👁 {lowConfidenceCue}
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Center — Arc Indicator + Phase */}
-        <div className="flex-1 flex flex-col items-center justify-center gap-5">
+        <div className="flex-1 flex flex-col items-center justify-center gap-6 mt-6 md:mt-0 min-h-[220px]">
+          {/* Form Reminder */}
+          {!isInitializing && calibrationPhase === "ready" && (
+            <div className="text-center font-sans text-xs md:text-sm text-paper/70 bg-paper/5 px-4 py-2 rounded-full border border-paper/10">
+              💡 {primaryJoint === "neck" ? t("Turn slowly and smoothly") : (primaryJoint === "knee" ? t("Bend smoothly without swinging") : t("Keep arm straight and move slowly"))}
+            </div>
+          )}
+
           {/* Phase indicator banner */}
           {!isInitializing && calibrationPhase === "ready" && (
-            <div className={`flex items-center gap-2 rounded-full px-4 py-2 font-sans text-sm font-semibold shadow-lg backdrop-blur-sm transition-all duration-300 ${
+            <div className={`flex items-center justify-center gap-2 rounded-full px-5 py-2 font-sans text-sm md:text-base font-semibold shadow-lg transition-all duration-300 ${
               state.phase === "concentric"
                 ? "bg-recovery/80 text-white"
                 : state.phase === "eccentric"
-                ? "bg-paper/20 text-paper border border-paper/30"
-                : "bg-paper/10 text-paper/60 border border-paper/20"
+                ? "bg-paper/10 text-paper border border-paper/20"
+                : "bg-paper/5 text-paper/60 border border-paper/10"
             }`}>
               {state.phase === "setup" && (
-                <><span>●</span><span>{t("Ready")} — {isHandTracking ? t("hand in view") : (isKneeFlexion ? t("leg straight") : t("arm at side"))}</span></>
+                <><span>●</span><span>{t("Ready")} — {isHandTracking ? t("hand in view") : (primaryJoint === "neck" ? t("look forward") : (primaryJoint === "knee" || primaryJoint === "hip" || primaryJoint === "ankle" ? t("leg straight") : t("arm at side")))}</span></>
               )}
               {state.phase === "concentric" && (
                 <><span>↑</span><span>{t("Lifting")}</span>
                   {state.currentAngle < targetAngle && (
-                    <span className="ml-1 opacity-80">
+                    <span className="ml-1.5 opacity-80 font-normal">
                       · {Math.max(0, Math.round(targetAngle - state.currentAngle))}° {t("to go")}
                     </span>
                   )}
@@ -666,56 +699,35 @@ export function LiveCamera({ exerciseType, onSessionComplete, targetModifier, dy
           )}
 
           {isInitializing ? (
-            <div className="flex flex-col items-center gap-3">
-              <div className="w-8 h-8 border-2 border-paper/30 border-t-paper rounded-full animate-spin" />
-              <p className="font-sans text-paper/70 text-sm">{t("Initializing camera & AI...")}</p>
+            <div className="flex flex-col items-center justify-center gap-3 h-full">
+              <div className="w-10 h-10 border-2 border-paper/20 border-t-paper rounded-full animate-spin" />
+              <p className="font-sans text-paper/60 text-sm md:text-base">{t("Initializing AI...")}</p>
             </div>
           ) : calibrationPhase === "ready" ? (
-            <div className="relative">
+            <div className="relative w-full flex justify-center">
               <div
-                className={`rounded-full bg-paper p-4 shadow-2xl transition-all duration-200 ${
-                  isSignal ? "ring-4 ring-signal shadow-signal/40" : "ring-0"
+                className={`rounded-3xl bg-white p-5 md:p-6 shadow-xl transition-all duration-200 flex flex-col items-center justify-center w-64 md:w-72 ${
+                  isSignal ? "ring-4 ring-signal/80 shadow-signal/20" : "ring-1 ring-black/5"
                 }`}
               >
-                <ArcIndicator
-                  currentValue={engine.trackingMode === "B" ? state.holdTimeMs / 1000 : state.currentAngle}
-                  targetValue={engine.trackingMode === "B" && engine.targetHoldSeconds ? engine.targetHoldSeconds : targetAngle}
-                  color={isSignal ? "signal" : "recovery"}
-                  animated={engine.trackingMode === "B"}
-                />
+                <div className="scale-110 md:scale-125 my-4">
+                  <ArcIndicator
+                    currentValue={engine.trackingMode === "B" ? state.holdTimeMs / 1000 : state.currentAngle}
+                    targetValue={engine.trackingMode === "B" && engine.targetHoldSeconds ? engine.targetHoldSeconds : targetAngle}
+                    color={isSignal ? "signal" : "recovery"}
+                    animated={engine.trackingMode === "B"}
+                  />
+                </div>
+                <p className="mt-5 text-center font-sans text-xs md:text-sm font-medium text-ink/70 bg-ink/5 px-3 py-1.5 rounded-lg w-full">
+                  {engine.trackingMode === "B" 
+                    ? `${t(exerciseName || exerciseType)}: ${Math.floor(state.holdTimeMs / 1000)}s of ${engine.targetHoldSeconds || 0}s target`
+                    : `${t(exerciseName || exerciseType)}: ${Math.round(state.currentAngle)}° of ${Math.round(targetAngle)}°`}
+                </p>
               </div>
-
             </div>
           ) : null}
         </div>
 
-        {/* Center Prominent Live Coaching Cue HUD */}
-        <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-30">
-          {calibrationPhase === "ready" && (state.liveCue || state.formWarning) && (
-            <div className="mt-48 transition-all duration-300 ease-in-out">
-              {state.formSignal === "poor" ? (
-                <div className="bg-black/70 backdrop-blur-md rounded-2xl px-6 py-4 border-2 border-signal shadow-2xl animate-in zoom-in-95 duration-200">
-                  <p className="font-sans text-2xl md:text-3xl font-bold text-signal text-center leading-tight drop-shadow-md">
-                    {t(state.formWarning || state.liveCue)}
-                  </p>
-                </div>
-              ) : (
-                <div className="bg-black/60 backdrop-blur-md rounded-2xl px-6 py-3 border border-white/10 shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  <p className={`font-sans text-2xl md:text-3xl font-bold text-center tracking-wide drop-shadow-md ${
-                    state.liveCue === "Good rep!" || state.liveCue === "Hold it!" || state.liveCue === "Holding position..."
-                      ? "text-recovery"
-                      : "text-white"
-                  }`}>
-                    {t(state.liveCue)}
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Bottom spacing where form warning used to be */}
-        <div className="h-14 flex items-end justify-center" />
       </div>
     </div>
   )

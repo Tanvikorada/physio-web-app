@@ -18,12 +18,20 @@ export default async function SessionPage({
 
   const { exerciseId } = await searchParams
 
+  if (!exerciseId) {
+    redirect("/library")
+  }
+
   let exerciseData = null
-  if (exerciseId) {
-    const exercise = await prisma.exercise.findUnique({
-      where: { id: exerciseId }
-    })
-    if (exercise) {
+  const exercise = await prisma.exercise.findUnique({
+    where: { id: exerciseId }
+  })
+  
+  if (!exercise) {
+    redirect("/library")
+  }
+
+  if (exercise) {
       exerciseData = {
         id: exercise.id,
         name: exercise.name,

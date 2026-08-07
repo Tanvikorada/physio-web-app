@@ -58,17 +58,11 @@ function SessionPageContent({
 }) {
   const { t } = useTranslation()
   // ALL modes (A, B, C, D) go through screening first — Mode D is instructional but still needs safety check.
-  const [sessionState, setSessionState] = useState<SessionState>(
-    initialExerciseData ? "screening" : "setup"
-  )
-  const searchParams = useSearchParams()
-  const defaultEx = searchParams.get("exercise") === "Shoulder Abduction" ? "ShoulderAbduction" : "KneeFlexion"
+  const [sessionState, setSessionState] = useState<SessionState>("screening")
   
   // Use exercise_id from landmarkConfig if present, otherwise fall back to exercise name
   const [exercise, setExercise] = useState<string>(
-    initialExerciseData
-      ? (initialExerciseData.landmarkConfig?.exercise_id || initialExerciseData.name)
-      : defaultEx
+    initialExerciseData?.landmarkConfig?.exercise_id || initialExerciseData?.name || "Unknown"
   )
 
 
@@ -113,7 +107,7 @@ function SessionPageContent({
 
   const handleScreeningBlock = async (flags: string[]) => {
     setSessionState("blocked")
-    const exName = initialExerciseData?.name || (exercise === "KneeFlexion" ? "Knee Flexion" : "Shoulder Abduction")
+    const exName = initialExerciseData?.name || exercise
     try {
       await fetch("/api/sessions", {
         method: "POST",
@@ -131,7 +125,7 @@ function SessionPageContent({
 
   const handlePrePainSubmit = async (score: number) => {
     setPrePain(score)
-    const exName = initialExerciseData?.name || (exercise === "KneeFlexion" ? "Knee Flexion" : "Shoulder Abduction")
+    const exName = initialExerciseData?.name || exercise
 
     // Hard block if score ≥ 7 (Red Light)
     if (score >= 7) {
@@ -188,7 +182,7 @@ function SessionPageContent({
   const handlePostPainSubmit = async (score: number) => {
     setPostPain(score)
     setSessionState("summary")
-    const exName = initialExerciseData?.name || (exercise === "KneeFlexion" ? "Knee Flexion" : "Shoulder Abduction")
+    const exName = initialExerciseData?.name || exercise
 
     let createdSessionId: string | undefined = undefined
 
@@ -390,6 +384,7 @@ function SessionPageContent({
       <div className="fixed inset-0 h-screen w-screen bg-ink">
         <LiveCamera
           exerciseType={exercise}
+          exerciseName={initialExerciseData?.name || "Exercise"}
           onSessionComplete={handleActiveSessionComplete}
           targetModifier={targetModifier}
           dynamicConfig={initialExerciseData?.landmarkConfig}
@@ -510,7 +505,7 @@ function SessionPageContent({
   }
 
   // SUMMARY
-  const exDisplayName = initialExerciseData?.name || (exercise === "KneeFlexion" ? "Knee Flexion" : "Shoulder Abduction")
+  const exDisplayName = initialExerciseData?.name || exercise
   
   let baseTargetAngle = 180
   if (initialExerciseData?.landmarkConfig) {

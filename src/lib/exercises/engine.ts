@@ -243,9 +243,12 @@ export class ExerciseEngine {
 
     // Setup-phase cue: prompt user to get into starting position
     if (this.state.phase === "setup") {
-      const exerciseLabel = this.config.primary_joint === "knee" || this.config.primary_joint === "hip" || this.config.primary_joint === "ankle" 
-        ? "leg straight" 
-        : "arm at side"
+      let exerciseLabel = "arm at side"
+      if (this.config.primary_joint === "knee" || this.config.primary_joint === "hip" || this.config.primary_joint === "ankle") {
+        exerciseLabel = "leg straight"
+      } else if (this.config.primary_joint === "neck") {
+        exerciseLabel = "look forward"
+      }
       this.setLiveCue(`Start: ${exerciseLabel}`, timestampMs)
     }
 
