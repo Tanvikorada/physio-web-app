@@ -16,6 +16,7 @@ interface ExerciseDemo3DProps {
 function Model({ primaryJoint, startAngle, targetAngle, axis, isPlaying }: ExerciseDemo3DProps & { isPlaying: boolean }) {
   const fbx = useFBX('/models/tracksuit.fbx')
   const jointRef = useRef<THREE.Bone | null>(null)
+  const initialRotRef = useRef<THREE.Euler | null>(null)
   
   // Find the bone on mount
   useEffect(() => {
@@ -28,10 +29,14 @@ function Model({ primaryJoint, startAngle, targetAngle, axis, isPlaying }: Exerc
       }
     })
     jointRef.current = foundBone as THREE.Bone | null
+    if (foundBone) {
+      // Save the original rest rotation so we apply relative deltas, preventing axis twisting
+      initialRotRef.current = (foundBone as THREE.Bone).rotation.clone()
+    }
   }, [fbx, primaryJoint])
 
   useFrame((state) => {
-    if (!jointRef.current || !isPlaying) return
+    if (!jointRef.current || !initialRotRef.current || !isPlaying) return
 
     // Create a smooth looping value between 0 and 1
     // Math.sin oscillates between -1 and 1. We map it to 0..1
@@ -42,10 +47,11 @@ function Model({ primaryJoint, startAngle, targetAngle, axis, isPlaying }: Exerc
     
     // Lerp between start and target
     const currentAngle = THREE.MathUtils.lerp(startRad, targetRad, t)
+    const delta = currentAngle - startRad
 
-    if (axis === 'x') jointRef.current.rotation.x = currentAngle
-    if (axis === 'y') jointRef.current.rotation.y = currentAngle
-    if (axis === 'z') jointRef.current.rotation.z = currentAngle
+    if (axis === 'x') jointRef.current.rotation.x = initialRotRef.current.x + delta
+    if (axis === 'y') jointRef.current.rotation.y = initialRotRef.current.y + delta
+    if (axis === 'z') jointRef.current.rotation.z = initialRotRef.current.z + delta
   })
 
   // Enable shadow casting for realism
