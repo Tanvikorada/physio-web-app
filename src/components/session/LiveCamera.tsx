@@ -43,9 +43,9 @@ const HAND_CONNECTIONS: [number, number][] = [
 // ─────────────────────────────────────────────────────────────────────────────
 // Accuracy constants
 // ─────────────────────────────────────────────────────────────────────────────
-const EMA_ALPHA = 1.0           // Disabled for debugging
-const CONFIDENCE_THRESHOLD = 0.35 // Lowered to avoid false rejections
-const CALIBRATION_FRAMES = 0    // Bypassed for debugging
+const EMA_ALPHA = 0.35           // Landmark smoothing factor (lower = smoother but more lag)
+const CONFIDENCE_THRESHOLD = 0.6 // Minimum per-landmark visibility to accept a frame
+const CALIBRATION_FRAMES = 60    // Number of frames to hold still during calibration (~2s at 30fps)
 
 // Joint name mapping for user-facing cue messages
 const JOINT_NAMES: Record<number, string> = {
@@ -296,10 +296,8 @@ export function LiveCamera({ exerciseType, onSessionComplete, targetModifier, dy
 
   // ── Check confidence for all 3 active landmarks ────────────────────────────
   const checkConfidence = useCallback(
-    (landmarks: Point3D[], config: any): { ok: boolean; cue: string | null } => {
-      if (!config?.landmarks_used) return { ok: true, cue: null }
-      const [aIdx, bIdx, cIdx] = config.landmarks_used
-      const triplet = [aIdx, bIdx, cIdx]
+    (landmarks: Point3D[], triplet: [number, number, number] | null): { ok: boolean; cue: string | null } => {
+      if (!triplet) return { ok: true, cue: null }
       for (const idx of triplet) {
         const lm = landmarks[idx]
         if (!lm || (lm.visibility ?? 1) < CONFIDENCE_THRESHOLD) {
@@ -335,10 +333,10 @@ export function LiveCamera({ exerciseType, onSessionComplete, targetModifier, dy
 
           // ── Calibration phase ────────────────────────────────────────────
           if (calibrationPhaseRef.current === "calibrating") {
-            const config = isHandTracking ? null : (engine as ExerciseEngine).config
+            const activeTriplet = isHandTracking ? null : (engine as ExerciseEngine).getActiveTriplet(mappedLandmarks)
             const { ok, cue } = isHandTracking
               ? { ok: true, cue: null }
-              : checkConfidence(mappedLandmarks, config)
+              : checkConfidence(mappedLandmarks, activeTriplet)
 
             if (!ok) {
               // Key joints not visible during calibration — stay in calibrating, don't advance frame count
@@ -363,11 +361,11 @@ export function LiveCamera({ exerciseType, onSessionComplete, targetModifier, dy
 
           // ── Confidence gate (post-calibration, every frame) ───────────────
           if (!isHandTracking) {
-            const config = (engine as ExerciseEngine).config
-            const { ok, cue } = checkConfidence(mappedLandmarks, config)
+            const activeTriplet = (engine as ExerciseEngine).getActiveTriplet(mappedLandmarks)
+            const { ok, cue } = checkConfidence(mappedLandmarks, activeTriplet)
             if (!ok) {
               setLowConfidenceCue(cue)
-              drawSkeleton(mappedLandmarks, config.landmarks_used, false, "poor")
+              drawSkeleton(mappedLandmarks, activeTriplet, false, "poor")
               requestRef.current = requestAnimationFrame(renderLoop)
               return
             }
@@ -379,7 +377,7 @@ export function LiveCamera({ exerciseType, onSessionComplete, targetModifier, dy
 
           drawSkeleton(
             mappedLandmarks,
-            isHandTracking ? null : (engine as ExerciseEngine).config.landmarks_used as [number, number, number],
+            isHandTracking ? null : (engine as ExerciseEngine).getActiveTriplet(mappedLandmarks),
             newState.repPeakFlash,
             newState.formSignal
           )

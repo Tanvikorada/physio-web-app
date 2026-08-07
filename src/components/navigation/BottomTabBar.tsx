@@ -26,7 +26,7 @@ export const BottomTabBar = () => {
             <Link 
               key={item.name} 
               href={item.href}
-              className={`flex flex-col items-center justify-center flex-1 h-full gap-1 min-h-[44px] transition-colors ${
+              className={`flex flex-col items-center justify-center flex-1 h-full gap-1 min-h-[44px] transition-all duration-200 active:scale-95 ${
                 isActive 
                   ? "text-recovery" 
                   : "text-ink/40 hover:text-ink/70"

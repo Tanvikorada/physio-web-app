@@ -26,7 +26,7 @@ function Model({ config, isPlaying }: ExerciseDemo3DProps & { isPlaying: boolean
   
   // Set to true to force a static target pose for verifying the axis and bone name.
   // Set to false to run the full smooth loop.
-  const debugStaticPose = true; 
+  const debugStaticPose = false; 
   
   // Find the bone on mount
   useEffect(() => {
@@ -74,12 +74,11 @@ function Model({ config, isPlaying }: ExerciseDemo3DProps & { isPlaying: boolean
       config.rotationAxis === 'z' ? 1 : 0
     )
     
-    // Create quaternion for the local delta rotation
-    const deltaQuat = new THREE.Quaternion().setFromAxisAngle(axisVec, delta)
-    
-    // Apply local delta to the initial rest quaternion
+    // To prevent "candy wrapper" or flailing effects caused by weird local bone rigged axes,
+    // we reset to the initial pose and then rotate around the WORLD axis.
     if (config.useQuaternionSlerp) {
-        jointRef.current.quaternion.copy(initialQuatRef.current).multiply(deltaQuat)
+        jointRef.current.quaternion.copy(initialQuatRef.current)
+        jointRef.current.rotateOnWorldAxis(axisVec, delta)
     }
   })
 

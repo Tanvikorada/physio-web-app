@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { Activity } from "lucide-react"
 import { useTranslation } from "@/components/DictionaryProvider"
 
 export const Sidebar = ({ user }: { user?: { name?: string | null, email?: string | null } }) => {
@@ -19,7 +20,10 @@ export const Sidebar = ({ user }: { user?: { name?: string | null, email?: strin
   return (
     <aside className="hidden md:flex flex-col w-64 bg-white border-r border-line h-screen sticky top-0 px-4 py-8 justify-between">
       <div className="space-y-8">
-        <div className="px-4">
+        <div className="px-4 flex items-center gap-2">
+          <div className="bg-recovery/10 text-recovery p-1.5 rounded-lg">
+            <Activity className="w-6 h-6" />
+          </div>
           <h2 className="font-serif text-2xl font-medium tracking-tight text-ink">Rehab<span className="text-recovery">.AI</span></h2>
         </div>
         
@@ -30,7 +34,7 @@ export const Sidebar = ({ user }: { user?: { name?: string | null, email?: strin
               <Link 
                 key={item.name} 
                 href={item.href}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 active:scale-95 ${
                   isActive 
                     ? "bg-recovery/10 text-recovery font-serif font-medium" 
                     : "text-ink/60 hover:bg-paper font-sans hover:text-ink/90"

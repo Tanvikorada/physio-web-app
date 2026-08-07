@@ -62,7 +62,7 @@ export class ExerciseEngine {
 
   // Multi-frame rep validation
   private peakFrameCount: number = 0
-  private readonly PEAK_FRAMES_REQUIRED = 1 // Reverted to 1 for debugging
+  private readonly PEAK_FRAMES_REQUIRED = 4
 
   // Live cue debouncing — only update text when it actually changes
   private lastCueText: string | null = null
@@ -115,28 +115,32 @@ export class ExerciseEngine {
     }
   }
 
-  public processLandmarks(landmarks: Point3D[], timestampMs: number) {
-    // Pick side (Right vs Left).
+  public getActiveTriplet(landmarks: Point3D[]): [number, number, number] {
     const config = this.config
     let [aIdx, bIdx, cIdx] = config.landmarks_used
 
-    // Check if left side is more visible
     const rightVisibility =
       (landmarks[aIdx]?.visibility || 0) +
       (landmarks[bIdx]?.visibility || 0) +
       (landmarks[cIdx]?.visibility || 0)
+    
     const leftVisibility =
       (landmarks[aIdx - 1]?.visibility || 0) +
       (landmarks[bIdx - 1]?.visibility || 0) +
       (landmarks[cIdx - 1]?.visibility || 0)
 
-    let isLeftSide = false
     if (leftVisibility > rightVisibility) {
-      aIdx -= 1
-      bIdx -= 1
-      cIdx -= 1
-      isLeftSide = true
+      return [aIdx - 1, bIdx - 1, cIdx - 1]
     }
+    return [aIdx, bIdx, cIdx]
+  }
+
+  public processLandmarks(landmarks: Point3D[], timestampMs: number) {
+    const activeTriplet = this.getActiveTriplet(landmarks)
+    const [aIdx, bIdx, cIdx] = activeTriplet
+
+    // Is it the left side? (Assuming config defaults to right side which are even numbers)
+    const isLeftSide = aIdx % 2 !== 0
 
     const a = landmarks[aIdx]
     const b = landmarks[bIdx]
