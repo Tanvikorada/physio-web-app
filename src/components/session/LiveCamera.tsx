@@ -46,6 +46,7 @@ const HAND_CONNECTIONS: [number, number][] = [
 const EMA_ALPHA = 0.35           // Landmark smoothing factor (lower = smoother but more lag)
 const CONFIDENCE_THRESHOLD = 0.6 // Minimum per-landmark visibility to accept a frame
 const CALIBRATION_FRAMES = 60    // Number of frames to hold still during calibration (~2s at 30fps)
+const DIAG_LOG_EVERY = 30        // Only log every N frames to reduce console spam
 
 // Joint name mapping for user-facing cue messages
 const JOINT_NAMES: Record<number, string> = {
@@ -101,6 +102,7 @@ export function LiveCamera({ exerciseType, onSessionComplete, targetModifier, dy
 
   // ── EMA smoothing: per-landmark smoothed positions ─────────────────────────
   const smoothedLandmarksRef = useRef<Map<number, Point3D>>(new Map())
+  const diagFrameCountRef = useRef(0) // for throttling diagnostic logs
 
   const applyEMASmoothing = useCallback((rawLandmarks: Point3D[]): Point3D[] => {
     return rawLandmarks.map((lm, i) => {
@@ -331,6 +333,19 @@ export function LiveCamera({ exerciseType, onSessionComplete, targetModifier, dy
           // Apply EMA smoothing before any angle math
           const mappedLandmarks = isHandTracking ? mappedRaw : applyEMASmoothing(mappedRaw)
 
+          // ── DIAGNOSTIC CHECKPOINT 1: EMA smoothing output ────────────────
+          diagFrameCountRef.current += 1
+          const shouldLog = diagFrameCountRef.current % DIAG_LOG_EVERY === 0
+          if (shouldLog && !isHandTracking) {
+            const [aI, bI, cI] = (engine as ExerciseEngine).getActiveTriplet(mappedLandmarks)
+            console.log(
+              `[DIAG CP1 EMA] frame=${diagFrameCountRef.current} triplet=[${aI},${bI},${cI}]`,
+              `A=`, mappedLandmarks[aI] ? `{x:${mappedLandmarks[aI].x.toFixed(3)},y:${mappedLandmarks[aI].y.toFixed(3)},vis:${mappedLandmarks[aI].visibility?.toFixed(2)}}` : 'MISSING',
+              `B=`, mappedLandmarks[bI] ? `{x:${mappedLandmarks[bI].x.toFixed(3)},y:${mappedLandmarks[bI].y.toFixed(3)},vis:${mappedLandmarks[bI].visibility?.toFixed(2)}}` : 'MISSING',
+              `C=`, mappedLandmarks[cI] ? `{x:${mappedLandmarks[cI].x.toFixed(3)},y:${mappedLandmarks[cI].y.toFixed(3)},vis:${mappedLandmarks[cI].visibility?.toFixed(2)}}` : 'MISSING',
+            )
+          }
+
           // ── Calibration phase ────────────────────────────────────────────
           if (calibrationPhaseRef.current === "calibrating") {
             const activeTriplet = isHandTracking ? null : (engine as ExerciseEngine).getActiveTriplet(mappedLandmarks)
@@ -359,10 +374,22 @@ export function LiveCamera({ exerciseType, onSessionComplete, targetModifier, dy
             return
           }
 
-          // ── Confidence gate (post-calibration, every frame) ───────────────
+          // ── DIAGNOSTIC CHECKPOINT 2: Confidence gate ─────────────────────
           if (!isHandTracking) {
             const activeTriplet = (engine as ExerciseEngine).getActiveTriplet(mappedLandmarks)
             const { ok, cue } = checkConfidence(mappedLandmarks, activeTriplet)
+            if (shouldLog) {
+              const [aI, bI, cI] = activeTriplet
+              const visA = mappedLandmarks[aI]?.visibility ?? -1
+              const visB = mappedLandmarks[bI]?.visibility ?? -1
+              const visC = mappedLandmarks[cI]?.visibility ?? -1
+              console.log(
+                `[DIAG CP2 CONFIDENCE] gate=${ok ? 'PASS ✅' : 'FAIL ❌'}`,
+                `threshold=${CONFIDENCE_THRESHOLD}`,
+                `visibilities=[${visA.toFixed(2)},${visB.toFixed(2)},${visC.toFixed(2)}]`,
+                ok ? '' : `cue="${cue}"`
+              )
+            }
             if (!ok) {
               setLowConfidenceCue(cue)
               drawSkeleton(mappedLandmarks, activeTriplet, false, "poor")
@@ -373,6 +400,17 @@ export function LiveCamera({ exerciseType, onSessionComplete, targetModifier, dy
           }
 
           const newState = engine.processLandmarks(mappedLandmarks, startTimeMs)
+
+          // ── DIAGNOSTIC CHECKPOINT 5: Angle value in state vs UI ──────────
+          if (shouldLog) {
+            console.log(
+              `[DIAG CP5 STATE->UI] currentAngle=${newState.currentAngle}`,
+              `phase=${newState.phase}`,
+              `reps=${newState.reps}`,
+              `formSignal=${newState.formSignal}`,
+            )
+          }
+
           setState({ ...newState })
 
           drawSkeleton(

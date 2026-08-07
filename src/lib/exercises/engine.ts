@@ -176,11 +176,29 @@ export class ExerciseEngine {
     // Use 2D angle for more stability in single-camera setups
     let rawAngle = calculateAngle2D(a, b, c)
 
+    // ── DIAGNOSTIC CP3: landmarks into angle function ─────────────────────────
+    if (Math.random() < 0.033) { // ~1 in 30 frames
+      console.log(
+        `[DIAG CP3 TRIPLET] type=${this.type} isLeft=${isLeftSide} idx=[${aIdx},${bIdx},${cIdx}]`,
+        `A={x:${a.x.toFixed(3)},y:${a.y.toFixed(3)},vis:${a.visibility?.toFixed(2)}}`,
+        `B={x:${b.x.toFixed(3)},y:${b.y.toFixed(3)},vis:${b.visibility?.toFixed(2)}}`,
+        `C={x:${c.x.toFixed(3)},y:${c.y.toFixed(3)},vis:${c.visibility?.toFixed(2)}}`,
+      )
+    }
+
     let computedAngle = 0
     if (this.type === "KneeFlexion") {
       computedAngle = Math.abs(180 - rawAngle)
     } else if (this.type === "ShoulderAbduction") {
       computedAngle = rawAngle
+    }
+
+    // ── DIAGNOSTIC CP4: raw angle result ─────────────────────────────────────
+    if (Math.random() < 0.033) {
+      console.log(
+        `[DIAG CP4 RAW ANGLE] rawAngle=${rawAngle.toFixed(2)}° computedAngle=${computedAngle.toFixed(2)}°`,
+        `(${this.type} uses ${this.type === "KneeFlexion" ? "180-raw" : "raw"})`,
+      )
     }
 
     this.state.currentAngle = Math.round(computedAngle)
