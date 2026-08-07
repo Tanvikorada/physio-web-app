@@ -73,11 +73,13 @@ export class ExerciseEngine {
 
   public trackingMode: string
   public targetHoldSeconds: number | null
+  public exerciseName: string | null
 
-  constructor(type: string, romModifier: number = 1.0, dynamicConfig?: any, trackingMode: string = "A", targetHoldSeconds: number | null = null) {
+  constructor(type: string, romModifier: number = 1.0, dynamicConfig?: any, trackingMode: string = "A", targetHoldSeconds: number | null = null, exerciseName: string | null = null) {
     this.type = type
     this.trackingMode = trackingMode
     this.targetHoldSeconds = targetHoldSeconds
+    this.exerciseName = exerciseName
 
     // Copy config and apply ROM modifier to the rep_top_angle
     const baseConfig = dynamicConfig || (CONFIG as any)[type]
@@ -315,7 +317,7 @@ export class ExerciseEngine {
       if (angle >= targetThreshold) {
         if (!this.state.isHolding) {
           this.state.isHolding = true
-          this.setCoachMessage(`Yes, perfect! Now hold it right there for ${this.targetHoldSeconds || 10} seconds.`)
+          this.setCoachMessage(`Yes, perfect! Now hold your ${config.primary_joint || "position"} right there for ${this.targetHoldSeconds || 10} seconds.`)
         }
         
         // Accumulate time if we have a valid previous frame
@@ -363,7 +365,7 @@ export class ExerciseEngine {
         if (this.monotonicFails > 3) {
           this.state.formSignal = "poor"
           this.setLiveCue("Slow down", timestampMs)
-          this.setCoachMessage("Try not to jerk your movement. Keep it smooth and controlled.")
+          this.setCoachMessage(`Try not to jerk your ${config.primary_joint || "movement"}. Keep it smooth and controlled.`)
           if (!this.state.formFlags.includes("Jerky movement")) {
             this.state.formFlags.push("Jerky movement")
           }
@@ -373,7 +375,7 @@ export class ExerciseEngine {
         const progress = angle / config.rep_top_angle
         if (angle >= config.rep_top_angle) {
           this.setLiveCue("Hold it!", timestampMs)
-          this.setCoachMessage("Perfect! Now slowly return to the starting position.")
+          this.setCoachMessage(`Perfect! Now slowly return your ${config.primary_joint || "joint"} to the starting position.`)
         } else if (progress >= 0.8) {
           this.setLiveCue("Almost there!", timestampMs)
           this.setCoachMessage("Almost there, just a little bit more...")
@@ -406,7 +408,7 @@ export class ExerciseEngine {
         this.monotonicFails = 0
         this.peakFrameCount = 0
         this.setLiveCue("Lower slowly", timestampMs)
-        this.setCoachMessage("Nice work. Slowly go back to the previous position.")
+        this.setCoachMessage(`Nice work. Slowly move your ${config.primary_joint || "joint"} back to the previous position.`)
       }
     } else if (this.state.phase === "eccentric") {
       // Check jerkiness (angle increasing significantly during eccentric phase)

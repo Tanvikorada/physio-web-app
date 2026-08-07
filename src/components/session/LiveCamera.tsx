@@ -85,7 +85,7 @@ export function LiveCamera({ exerciseType, exerciseName, onSessionComplete, targ
   const [engine] = useState(() => 
     isHandTracking
       ? new HandExerciseEngine(exerciseType, targetModifier?.romModifier ?? 1.0, trackingMode, targetHoldSeconds || null)
-      : new ExerciseEngine(exerciseType, targetModifier?.romModifier ?? 1.0, dynamicConfig, trackingMode || "A", targetHoldSeconds || null)
+      : new ExerciseEngine(exerciseType, targetModifier?.romModifier ?? 1.0, dynamicConfig, trackingMode || "A", targetHoldSeconds || null, exerciseName)
   )
   const [state, setState] = useState<any>(engine.state)
   const [isInitializing, setIsInitializing] = useState(true)
@@ -577,37 +577,37 @@ export function LiveCamera({ exerciseType, exerciseName, onSessionComplete, targ
           </div>
         )}
 
-        {/* Center Prominent Live Coaching Cue HUD */}
-        <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-30 p-4">
-          {calibrationPhase === "ready" && (state.liveCue || state.formWarning) && (
-            <div className="mt-24 md:mt-32 transition-all duration-300 ease-in-out w-full flex justify-center">
-              {state.formSignal === "poor" ? (
-                <div className="bg-black/70 backdrop-blur-md rounded-2xl px-5 py-3 border-2 border-signal shadow-2xl animate-in zoom-in-95 duration-200">
-                  <p className="font-sans text-xl md:text-2xl font-bold text-signal text-center leading-tight drop-shadow-md">
-                    {t(state.formWarning || state.liveCue)}
-                  </p>
-                </div>
-              ) : (
-                <div className="bg-black/60 backdrop-blur-md rounded-2xl px-5 py-2.5 border border-white/10 shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  <p className={`font-sans text-lg md:text-xl font-bold text-center tracking-wide drop-shadow-md ${
-                    state.liveCue === "Good rep!" || state.liveCue === "Hold it!" || state.liveCue === "Holding position..."
-                      ? "text-recovery"
-                      : "text-white"
-                  }`}>
-                    {t(state.liveCue)}
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+        {/* Removed Center Prominent Live Coaching Cue HUD from video panel */}
       </div>
 
       {/* ── PANEL 2: DASHBOARD INFO (Bottom on mobile, Right on desktop) ── */}
-      <div className="relative w-full flex-1 md:w-1/2 flex flex-col p-5 md:p-8 overflow-y-auto bg-ink z-10 shadow-[0_-10px_20px_rgba(0,0,0,0.1)] md:shadow-none">
+      <div className="relative w-full flex-1 md:w-1/2 flex flex-col p-5 md:p-8 overflow-y-auto bg-ink z-10 shadow-[0_-10px_20px_rgba(0,0,0,0.1)] md:shadow-none min-h-0">
         
+        {/* Prominent Live Cue (Moved from Video Panel) */}
+        {calibrationPhase === "ready" && (state.liveCue || state.formWarning) && (
+          <div className="mb-4 w-full flex justify-center shrink-0">
+            {state.formSignal === "poor" ? (
+              <div className="bg-signal/10 rounded-2xl px-5 py-3 border border-signal shadow-sm w-full animate-in zoom-in-95 duration-200">
+                <p className="font-sans text-base md:text-lg font-bold text-signal text-center leading-tight">
+                  {t(state.formWarning || state.liveCue)}
+                </p>
+              </div>
+            ) : (
+              <div className="bg-paper/5 rounded-2xl px-5 py-2.5 border border-white/10 shadow-sm w-full animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <p className={`font-sans text-sm md:text-base font-bold text-center tracking-wide ${
+                  state.liveCue === "Good rep!" || state.liveCue === "Hold it!" || state.liveCue === "Holding position..."
+                    ? "text-recovery"
+                    : "text-white"
+                }`}>
+                  {t(state.liveCue)}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* AI Coach Narrator */}
-        <div className="mb-6 rounded-2xl bg-paper/5 border border-paper/10 p-5 shadow-sm flex items-start gap-4">
+        <div className="mb-6 shrink-0 rounded-2xl bg-paper/5 border border-paper/10 p-5 shadow-sm flex items-start gap-4">
           <div className="shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-recovery/20 text-recovery border border-recovery/30">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 01-.923 1.785A5.969 5.969 0 006 21c1.282 0 2.47-.402 3.445-1.087.81.22 1.668.337 2.555.337z" />

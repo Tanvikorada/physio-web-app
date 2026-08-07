@@ -24,7 +24,7 @@ export const Sidebar = ({ user }: { user?: { name?: string | null, email?: strin
           <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0">
             <img src="/icon" alt="Rehab.AI Logo" className="w-full h-full object-cover" />
           </div>
-          <h2 className="font-serif text-2xl font-medium tracking-tight text-ink">Rehab<span className="text-recovery">.AI</span></h2>
+          <h2 className="font-serif text-2xl font-medium tracking-tight text-ink whitespace-nowrap overflow-hidden text-ellipsis">Rehab<span className="text-recovery">.AI</span></h2>
         </div>
         
         <nav className="space-y-2">
